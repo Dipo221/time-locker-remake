@@ -1,8 +1,10 @@
 import type { ScaledDt } from '../core/clock';
 import {
+  BOSS_CONCURRENT_PER_DEFEATS,
+  BOSS_GAP_AFTER_SPAWN,
   BOSS_HP_SCALE_BASE,
-  BOSS_HP_SCORE_SPAN,
-  BOSS_SCORE_INTERVAL,
+  BOSS_HP_SQRT_DIVISOR,
+  BOSS_MAX_CONCURRENT,
   BOSS_SUPPRESSION,
   CAP_BASE,
   CAP_MAX,
@@ -15,7 +17,6 @@ import {
   SPAWN_MARGIN,
   SPAWN_MIN,
   SPAWN_MIN_PLAYER_DIST,
-  SCORE_FIRST_BOSS,
   FLAGS,
   VIEW_H,
   VIEW_W,
@@ -67,21 +68,28 @@ export class SpawnDirector {
     return band.w;
   }
 
-  /** Score at which boss number `n` (0-based) is due. */
-  nextBossScore(n: number): number {
-    return SCORE_FIRST_BOSS + n * BOSS_SCORE_INTERVAL;
+  /**
+   * How many bosses may be on screen at once. Grows with how many the player
+   * has actually beaten, so a long run eventually sees the next one arrive
+   * before the current is finished - escalation, not a scheduling accident.
+   */
+  maxConcurrentBosses(defeated: number): number {
+    return Math.min(
+      BOSS_MAX_CONCURRENT,
+      1 + Math.floor(defeated / BOSS_CONCURRENT_PER_DEFEATS),
+    );
   }
 
   update(w: World, dt: ScaledDt): void {
     if (dt === 0) return;
     if (w.phase !== 'playing') return;
 
-    const boss = w.bossAlive();
+    const bosses = w.countBosses();
 
     if (
       FLAGS.bosses &&
-      boss === null &&
-      w.score >= this.nextBossScore(w.bossesSpawned)
+      w.score >= w.nextBossScore &&
+      bosses < this.maxConcurrentBosses(w.bossesDefeated)
     ) {
       this.spawnBoss(w);
       return;
@@ -89,7 +97,7 @@ export class SpawnDirector {
 
     // While a boss is up, the rank and file thin out. A boss fight you cannot
     // see through because the screen is full of penguins is not a boss fight.
-    this.timer -= boss === null ? dt : dt * BOSS_SUPPRESSION;
+    this.timer -= bosses === 0 ? dt : dt * BOSS_SUPPRESSION;
     if (this.timer > 0) return;
     this.timer += this.interval(w.score);
 
@@ -133,7 +141,8 @@ export class SpawnDirector {
     // Scaled by score, not by how many bosses have been met: score tracks how
     // much weaponry the player has stacked up, which is what actually decides
     // the fight.
-    const scale = BOSS_HP_SCALE_BASE + w.score / BOSS_HP_SCORE_SPAN;
+    const scale =
+      BOSS_HP_SCALE_BASE + Math.sqrt(w.score) / BOSS_HP_SQRT_DIVISOR;
     e.hp = Math.round(def.hp * scale);
     e.maxHp = e.hp;
 
@@ -149,6 +158,12 @@ export class SpawnDirector {
 
     this.lastBossId = def.id;
     w.bossesSpawned++;
+    // Hold the next one off even if the threshold is already passed, so two
+    // cannot arrive on the same frame once concurrency allows more than one.
+    w.nextBossScore = Math.max(
+      w.nextBossScore,
+      w.score + w.bossGap() * BOSS_GAP_AFTER_SPAWN,
+    );
   }
 
   private roll(score: number, rng: Rng): EnemyDef | null {

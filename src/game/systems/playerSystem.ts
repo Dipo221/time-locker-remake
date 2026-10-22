@@ -22,6 +22,7 @@ export function updatePlayerBody(
 ): void {
   if (!p.alive) {
     p.speed = 0;
+    p.stepDist = 0;
     return;
   }
 
@@ -46,7 +47,8 @@ export function updatePlayerBody(
 
   p.x += dx;
   p.y += dy;
-  p.speed = dt > 0 ? len(dx, dy) / dt : 0;
+  p.stepDist = len(dx, dy);
+  p.speed = dt > 0 ? p.stepDist / dt : 0;
 
   // Horizontal corridor. Y is unbounded: forward progress is the game.
   p.x = clamp(p.x, PLAY_MARGIN, VIEW_W - PLAY_MARGIN);

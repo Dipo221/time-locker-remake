@@ -26,6 +26,12 @@ export interface Player {
   fireCooldown: number;
   /** Instantaneous world speed, for the debug overlay and feel checks. */
   speed: number;
+  /**
+   * Distance travelled THIS FRAME. Pursuers need this rather than `speed`
+   * because the player moves on the real clock while they move on the scaled
+   * one, so comparing speeds directly is wrong whenever time is dilated.
+   */
+  stepDist: number;
 }
 
 export function createPlayer(): Player {
@@ -40,5 +46,6 @@ export function createPlayer(): Player {
     invulnRealFor: 0,
     fireCooldown: 0,
     speed: 0,
+    stepDist: 0,
   };
 }

@@ -128,6 +128,9 @@ export function resolveCollisions(w: World): void {
 export function killEnemy(w: World, e: Enemy): void {
   e.alive = false;
   w.score += e.scoreValue;
+  // After the score award, so the gap to the next boss is measured from where
+  // the player actually stands once the fight is over.
+  if (e.isBoss) w.onBossDefeated();
 
   burst(
     w.particles,

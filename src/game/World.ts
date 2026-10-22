@@ -1,8 +1,12 @@
 import type { Clock } from '../core/clock';
 import type { InputFrame } from '../core/input';
 import {
+  BOSS_GAP_BASE,
+  BOSS_GAP_MAX,
+  BOSS_GAP_SLOPE,
   DEATH_HOLD_SEC,
   DEATH_SLOWMO,
+  SCORE_FIRST_BOSS,
   POOL_ENEMY,
   POOL_ESHOT,
   POOL_PARTICLE,
@@ -69,8 +73,16 @@ export class World {
 
   score = 0;
   coins = 0;
-  /** How many bosses have been spawned this run. Drives schedule and scaling. */
+  /** How many bosses have been spawned this run. */
   bossesSpawned = 0;
+  /** How many have actually been beaten. Drives spacing and concurrency. */
+  bossesDefeated = 0;
+  /**
+   * Score at which the next boss becomes due. Stored rather than computed,
+   * because it is measured forward from the last boss's DEATH - an absolute
+   * schedule puts bosses back to back once score accrues quickly.
+   */
+  nextBossScore = SCORE_FIRST_BOSS;
   phase: Phase = 'playing';
   deathCause: DeathCause = null;
   /** REAL seconds of slow-motion hold after dying. */
@@ -109,6 +121,7 @@ export class World {
     p.invulnRealFor = 0;
     p.fireCooldown = 0;
     p.speed = 0;
+    p.stepDist = 0;
     p.shape = this.character.shape;
     p.drawSize = this.character.drawSize;
     p.hitboxRadius = this.character.hitboxRadius;
@@ -137,6 +150,8 @@ export class World {
     this.score = 0;
     this.coins = 0;
     this.bossesSpawned = 0;
+    this.bossesDefeated = 0;
+    this.nextBossScore = SCORE_FIRST_BOSS;
     this.phase = 'playing';
     this.deathCause = null;
     this.deathHold = 0;
@@ -155,6 +170,27 @@ export class World {
   rollWeapon(): WeaponId {
     const i = this.rng.weighted(this.weaponWeights);
     return WEAPON_IDS[i < 0 ? 0 : i];
+  }
+
+  /** Score the player must reach before the next boss, from here. */
+  bossGap(): number {
+    return Math.min(BOSS_GAP_MAX, BOSS_GAP_BASE + this.score * BOSS_GAP_SLOPE);
+  }
+
+  /** Called when a boss is killed; sets the breathing room before the next. */
+  onBossDefeated(): void {
+    this.bossesDefeated++;
+    this.nextBossScore = this.score + this.bossGap();
+  }
+
+  countBosses(): number {
+    const pool = this.enemies;
+    let n = 0;
+    for (let i = 0; i < pool.count; i++) {
+      const e = pool.active[i];
+      if (e.alive && e.isBoss) n++;
+    }
+    return n;
   }
 
   /**

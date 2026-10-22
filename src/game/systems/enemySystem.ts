@@ -1,6 +1,7 @@
 import type { ScaledDt } from '../../core/clock';
 import {
   BOSS_CATCHUP_MAX,
+  BOSS_PURSUE_MARGIN,
   BOSS_CATCHUP_RANGE,
   BOSS_CATCHUP_START,
   TURN_HOMING,
@@ -125,10 +126,22 @@ export function updateEnemies(
         const dy = player.y + R - e.y;
         const d = Math.hypot(dx, dy) || 1;
 
-        // Ease off near the station point so it settles instead of jittering,
-        // and accelerate hard when far from it so the boss cannot simply be
-        // outrun (see bossCatchup).
-        const speed = e.speed * bossCatchup(d) * Math.min(1, d / 40);
+        // Accelerate when far from station so the boss cannot be outrun...
+        let speed = e.speed * bossCatchup(d);
+
+        // ...but distance-to-station alone is not enough. A boss merely
+        // slower than the player settles just BELOW them, which is outside
+        // the forward firing arc, and the fight stalls at a trickle of
+        // damage. So whenever it is not comfortably ahead, it also matches
+        // the player's own travel with a margin. Per-frame travel, not speed:
+        // the player is on the real clock and this is on the scaled one.
+        if (dt > 0 && player.y - e.y > -R * 0.5) {
+          speed = Math.max(speed, (player.stepDist * BOSS_PURSUE_MARGIN) / dt);
+        }
+        speed = Math.min(speed, e.speed * BOSS_CATCHUP_MAX);
+
+        // Ease off near the station point so it settles instead of jittering.
+        speed *= Math.min(1, d / 40);
         e.vx = (dx / d) * speed;
         e.vy = (dy / d) * speed;
         e.heading = Math.atan2(player.y - e.y, player.x - e.x);
@@ -160,7 +173,11 @@ export function updateEnemies(
           // the same catch-up as a stationing boss, since otherwise this is
           // the phase in which a charger can be left behind for good.
           const cd = Math.hypot(player.x - e.x, player.y - e.y);
-          const cs = e.speed * bossCatchup(cd);
+          let cs = e.speed * bossCatchup(cd);
+          if (dt > 0 && player.y > e.y) {
+            cs = Math.max(cs, (player.stepDist * BOSS_PURSUE_MARGIN) / dt);
+          }
+          cs = Math.min(cs, e.speed * BOSS_CATCHUP_MAX);
           e.vx = Math.cos(toPlayer) * cs;
           e.vy = Math.sin(toPlayer) * cs;
           e.heading = toPlayer;

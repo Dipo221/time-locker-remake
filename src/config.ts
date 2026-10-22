@@ -181,6 +181,40 @@ export const SPAWN_BOTTOM_MIN_GAP = 260;
 // -------------------------------------------------------------- SCORE
 export const SCORE_FIRST_BOSS = 500;
 /**
+ * Spacing between bosses, in score.
+ *
+ * Measured from the score at which the LAST boss died, not from an absolute
+ * schedule. The absolute version (500, 1250, 2000, ...) looked fine on paper
+ * and was wrong in play: score accrues faster and faster, so late in a run a
+ * single boss fight earns more than the whole fixed interval, and the next
+ * boss was already due the instant the last one died. Play-testing reported
+ * exactly that - back-to-back bosses with no breathing room.
+ *
+ *     gap = min(BOSS_GAP_MAX, BOSS_GAP_BASE + score * BOSS_GAP_SLOPE)
+ *
+ * It saturates rather than growing without bound, because the measured score
+ * rate saturates too: it climbs from ~2/s to ~120/s over the first 90 seconds
+ * and then plateaus, since spawn density hits its own ceiling. A purely
+ * proportional gap would therefore make late bosses rarer and rarer. These
+ * values put roughly 20-30 seconds between bosses across the whole run.
+ */
+export const BOSS_GAP_BASE = 300;
+export const BOSS_GAP_SLOPE = 0.85;
+export const BOSS_GAP_MAX = 2600;
+/**
+ * After a boss SPAWNS, the next is held off by this fraction of a full gap.
+ * Only relevant once concurrent bosses are allowed; it stops two arriving on
+ * the same frame.
+ */
+export const BOSS_GAP_AFTER_SPAWN = 0.6;
+/**
+ * Concurrency grows with experience, so late in a long run the next boss can
+ * arrive before the current one is finished - which is the intended escalation
+ * rather than a scheduling accident.
+ */
+export const BOSS_CONCURRENT_PER_DEFEATS = 5;
+export const BOSS_MAX_CONCURRENT = 3;
+/**
  * Boss catch-up. Beyond BOSS_CATCHUP_START from its station a boss speeds up,
  * reaching BOSS_CATCHUP_MAX once BOSS_CATCHUP_RANGE further out.
  *
@@ -200,20 +234,44 @@ export const SCORE_FIRST_BOSS = 500;
  * actually decides a fight - how much weaponry the player has stacked up -
  * whereas a count says nothing about whether they arrived strong or lucky.
  *
- *     scale = BOSS_HP_SCALE_BASE + score / BOSS_HP_SCORE_SPAN
+ *     scale = BOSS_HP_SCALE_BASE + sqrt(score) / BOSS_HP_SQRT_DIVISOR
+ *
+ * The square root is the important part, and it was measured rather than
+ * chosen. A linear-in-score version made late fights drag to 40 seconds,
+ * because score and player damage do NOT grow together: over one run, between
+ * t=40s and t=280s score grew 12.4x while the player's damage grew only 2.7x.
+ * Score accelerates with enemy density; damage only grows as fast as weapon
+ * crates can be collected, which plateaus. Scaling health on the square root
+ * tracks the damage curve instead, keeping fights roughly constant in length
+ * for the whole run.
  *
  * Base is well below 1 so the first boss, which arrives at score 500 with the
  * player barely armed, is deliberately by far the softest of the run - it is
  * the one that has to be winnable, because a player who never beats a boss
  * never finds out that bosses are beatable.
  */
-export const BOSS_HP_SCALE_BASE = 0.2;
-export const BOSS_HP_SCORE_SPAN = 1700;
+export const BOSS_HP_SCALE_BASE = 0.1;
+export const BOSS_HP_SQRT_DIVISOR = 60;
+
+/**
+ * A pursuing boss matches at least this multiple of the player's own travel
+ * per frame, so it can always regain its station.
+ *
+ * Without it a boss whose speed is merely below the player's settles just
+ * BELOW them - outside the forward firing arc - and the fight stalls
+ * completely. Measured before the fix: a T-Rex parked 101 units behind the
+ * player and lost about 1 hit point per 40 seconds, surviving over two
+ * minutes and blocking every later boss.
+ *
+ * It is expressed against per-frame travel rather than speed because the
+ * player moves on the real clock and enemies on the scaled one, so comparing
+ * the two speeds directly is wrong whenever time is dilated.
+ */
+export const BOSS_PURSUE_MARGIN = 1.3;
 
 export const BOSS_CATCHUP_START = 300;
 export const BOSS_CATCHUP_RANGE = 700;
 export const BOSS_CATCHUP_MAX = 10;
-export const BOSS_SCORE_INTERVAL = 750;
 export const BOSS_SUPPRESSION = 0.5;
 export const SCORE_HARD_MODE = 10000;
 export const COIN_VALUE = 1;
