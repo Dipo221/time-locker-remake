@@ -180,6 +180,23 @@ export const SPAWN_BOTTOM_MIN_GAP = 260;
 
 // -------------------------------------------------------------- SCORE
 export const SCORE_FIRST_BOSS = 500;
+/**
+ * Boss catch-up. Beyond BOSS_CATCHUP_START from its station a boss speeds up,
+ * reaching BOSS_CATCHUP_MAX once BOSS_CATCHUP_RANGE further out.
+ *
+ * The multiplier has to be large, and it is safe for it to be: a player
+ * holding the time scale at its ceiling travels ~600 u/s, so at 4x even the
+ * full catch-up of the slowest boss (T-Rex, 95 u/s) was still slower than a
+ * determined sprinter and could be escaped for good. At 10x it closes at
+ * ~950 u/s, which nothing outruns.
+ *
+ * Nobody ever sees that speed, which is the point: full catch-up only applies
+ * about a screen-height away, so it plays out off-screen and decays back to 1x
+ * as the boss arrives. On screen a boss always moves at its own speed.
+ */
+export const BOSS_CATCHUP_START = 300;
+export const BOSS_CATCHUP_RANGE = 700;
+export const BOSS_CATCHUP_MAX = 10;
 export const BOSS_SCORE_INTERVAL = 750;
 export const BOSS_SUPPRESSION = 0.5;
 export const SCORE_HARD_MODE = 10000;

@@ -72,13 +72,15 @@ export function drawHud(vp: Viewport, w: World): void {
 }
 
 /**
- * Boss health, and a warning while it is still above the view.
+ * Boss health, plus an edge marker whenever the boss is off-screen.
  *
- * Both earn their place. A boss carries hundreds of hit points, so without a
- * bar the player cannot tell a winnable fight from a hopeless one and will
- * simply run. And a boss that arrives unannounced in a one-hit-death game is
- * just an ambush - the warning is there so the approach is the player's cue to
- * reposition, which is exactly what the time freeze is for.
+ * All of it earns its place. A boss carries hundreds of hit points, so without
+ * a bar the player cannot tell a winnable fight from a hopeless one and will
+ * simply run. And because a boss never despawns, it must never become
+ * untrackable: a play-test outran a T-Rex and spent the rest of the run with
+ * an invisible boss somewhere behind them and no further bosses spawning. The
+ * marker says which edge it is behind and how far, so "where did it go" is
+ * never a question.
  */
 export function drawBossBar(vp: Viewport, w: World): void {
   const boss = w.bossAlive();
@@ -88,15 +90,38 @@ export function drawBossBar(vp: Viewport, w: World): void {
   vp.applyUi();
 
   const name = boss.def.displayName ?? 'BOSS';
-  const approaching = boss.y > w.camera.y + VIEW_H / 2;
+  const top = w.camera.y + VIEW_H / 2;
+  const bottom = w.camera.y - VIEW_H / 2;
 
-  if (approaching) {
+  if (boss.y > top || boss.y < bottom) {
+    const above = boss.y > top;
+    const dist = Math.round(above ? boss.y - top : bottom - boss.y);
+    // Pin the marker to the edge it is behind, at its horizontal position.
+    const mx = Math.max(60, Math.min(VIEW_W - 60, boss.x));
+    const my = above ? 150 : VIEW_H - 150;
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+
     ctx.fillStyle = COLOR.enemyShot;
-    ctx.font = '700 28px ui-sans-serif, system-ui, sans-serif';
-    ctx.fillText(`! ${name} APPROACHING`, VIEW_W / 2, 150);
-    return;
+    ctx.beginPath();
+    if (above) {
+      ctx.moveTo(mx, my - 24);
+      ctx.lineTo(mx - 15, my - 2);
+      ctx.lineTo(mx + 15, my - 2);
+    } else {
+      ctx.moveTo(mx, my + 24);
+      ctx.lineTo(mx - 15, my + 2);
+      ctx.lineTo(mx + 15, my + 2);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.font = '700 22px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(name, mx, my + (above ? 20 : -20));
+    ctx.fillStyle = COLOR.hudDim;
+    ctx.font = '600 17px ui-monospace, Menlo, Consolas, monospace';
+    ctx.fillText(`${dist}`, mx, my + (above ? 42 : -42));
   }
 
   const x = 26;
