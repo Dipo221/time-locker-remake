@@ -1,5 +1,7 @@
 import type { ScaledDt } from '../core/clock';
 import {
+  BOSS_HP_SCALE_BASE,
+  BOSS_HP_SCORE_SPAN,
   BOSS_SCORE_INTERVAL,
   BOSS_SUPPRESSION,
   CAP_BASE,
@@ -128,11 +130,10 @@ export class SpawnDirector {
     if (e === null) return;
 
     applyDef(e, def);
-    // The first boss arrives at score 500, when the player has barely a weapon
-    // or two, and unlike the original's bosses this one blocks the escape
-    // route - so it is deliberately the softest of the series. Measured, a
-    // full-strength first boss was a 19-27 second fight with that loadout.
-    const scale = 0.7 + w.bossesSpawned * 0.5;
+    // Scaled by score, not by how many bosses have been met: score tracks how
+    // much weaponry the player has stacked up, which is what actually decides
+    // the fight.
+    const scale = BOSS_HP_SCALE_BASE + w.score / BOSS_HP_SCORE_SPAN;
     e.hp = Math.round(def.hp * scale);
     e.maxHp = e.hp;
 

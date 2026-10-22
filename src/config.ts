@@ -194,6 +194,22 @@ export const SCORE_FIRST_BOSS = 500;
  * about a screen-height away, so it plays out off-screen and decays back to 1x
  * as the boss arrives. On screen a boss always moves at its own speed.
  */
+/**
+ * Boss health scales with SCORE rather than with how many bosses you have
+ * already met. Score is the better proxy because it tracks the thing that
+ * actually decides a fight - how much weaponry the player has stacked up -
+ * whereas a count says nothing about whether they arrived strong or lucky.
+ *
+ *     scale = BOSS_HP_SCALE_BASE + score / BOSS_HP_SCORE_SPAN
+ *
+ * Base is well below 1 so the first boss, which arrives at score 500 with the
+ * player barely armed, is deliberately by far the softest of the run - it is
+ * the one that has to be winnable, because a player who never beats a boss
+ * never finds out that bosses are beatable.
+ */
+export const BOSS_HP_SCALE_BASE = 0.2;
+export const BOSS_HP_SCORE_SPAN = 1700;
+
 export const BOSS_CATCHUP_START = 300;
 export const BOSS_CATCHUP_RANGE = 700;
 export const BOSS_CATCHUP_MAX = 10;

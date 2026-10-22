@@ -11,12 +11,19 @@ import type { EnemyDef } from './enemies';
  * real hit points by BOSS_HP_PER_POINT.
  */
 /**
- * Measured, not guessed. At 90 the five bosses took 16-29 seconds to kill
- * with a mid-run loadout, because much of a stacked loadout fires sideways
- * and away from a single target: only a fraction of the player's nominal
- * dps ever lands on a boss. 45 puts the fights in the 8-15 second band.
+ * Hit points per durability rating, before score scaling.
+ *
+ * This has come down twice, and the second time was the instructive one. The
+ * numbers that produced 90, then 45, came from a simulated player that was
+ * INVULNERABLE - it could park in front of a boss and pour fire in, so its
+ * damage output was close to the theoretical maximum. A real player spends
+ * most of a boss fight dodging, with the boss blocking the way forward and
+ * the darkness closing from behind, so far less of their damage ever lands.
+ * Play-testing reported bosses as unbeatable, which is the gap between those
+ * two things. Measure against a bot that cannot die and you will tune every
+ * fight too hard.
  */
-export const BOSS_HP_PER_POINT = 45;
+export const BOSS_HP_PER_POINT = 18;
 
 const BOSS_SHOT = {
   shape: 'bulletRound',
