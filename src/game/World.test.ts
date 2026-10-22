@@ -62,8 +62,15 @@ describe('the freeze', () => {
     w.reset(99);
     const mk = clockFactory();
 
-    // Build some state: bullets in flight and enemies on screen.
-    for (let i = 0; i < 400; i++) w.update(mk(1), held(Math.cos(i / 9) * 4, 1.2));
+    // Build some state: bullets in flight and enemies on screen. The test
+    // subject is the freeze, not survival, so keep the scripted player alive -
+    // it does not dodge, and the spawn density is tuned for someone who does.
+    for (let i = 0; i < 400; i++) {
+      w.player.invulnRealFor = 1e9;
+      w.update(mk(1), held(Math.cos(i / 9) * 4, 1.2));
+    }
+    w.player.invulnRealFor = 0;
+    expect(w.phase).toBe('playing');
     expect(w.playerShots.count).toBeGreaterThan(0);
     expect(w.enemies.count).toBeGreaterThan(0);
 

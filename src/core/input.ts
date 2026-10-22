@@ -1,5 +1,14 @@
 import type { Viewport } from '../render/viewport';
 
+/** A screen-space zone where a press is a tap, not the start of a drag. */
+export interface UiRect {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface InputFrame {
   /** Is the pointer currently down. */
   holding: boolean;
@@ -43,6 +52,17 @@ export class Input {
   /** Increments on every fresh press. Lets callers require a NEW tap (e.g. to
    *  retry after death) rather than reacting to a pointer already held down. */
   pressCount = 0;
+
+  /**
+   * Rects (in design space) where a press is a BUTTON TAP rather than the
+   * start of a drag.
+   *
+   * A drag can begin anywhere on screen, so without this a pause button would
+   * also yank the player sideways. Registering the zone here means the press
+   * is swallowed before any movement or path length is recorded.
+   */
+  private uiRects: readonly UiRect[] = [];
+  private tapped: string | null = null;
 
   private readonly vp: Viewport;
   private pointerId: number | null = null;
@@ -97,9 +117,33 @@ export class Input {
     return c;
   }
 
+  /** Replace the tap zones. Callers re-register whenever the UI changes. */
+  setUiRects(rects: readonly UiRect[]): void {
+    this.uiRects = rects;
+  }
+
+  /** The id of a zone tapped since the last call, if any. */
+  consumeTap(): string | null {
+    const t = this.tapped;
+    this.tapped = null;
+    return t;
+  }
+
   private onDown = (e: PointerEvent): void => {
     if (this.pointerId !== null) return; // first pointer only
     e.preventDefault();
+
+    // A press inside a UI zone is a tap, and starts no drag at all - so the
+    // player does not lurch sideways when reaching for the pause button.
+    const dx = this.vp.clientToDesignX(e.clientX);
+    const dy = this.vp.clientToDesignY(e.clientY);
+    for (const r of this.uiRects) {
+      if (dx >= r.x && dx <= r.x + r.w && dy >= r.y && dy <= r.y + r.h) {
+        this.tapped = r.id;
+        return;
+      }
+    }
+
     this.pointerId = e.pointerId;
     // Keeps the drag alive if the pointer leaves the canvas.
     try {

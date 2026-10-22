@@ -65,12 +65,26 @@ export class SpawnDirector {
     if (this.timer > 0) return;
     this.timer += this.interval(w.score);
 
-    if (w.enemies.count >= this.cap(w.score)) return;
+    const room = this.cap(w.score) - w.enemies.count;
+    if (room <= 0) return;
 
     const def = this.roll(w.score, w.rng);
     if (def === null) return;
 
-    this.spawn(w, def);
+    this.spawn(w, def, room);
+  }
+
+  /**
+   * How many of this type arrive together. Flocking types also grow with
+   * score; lone types (bears, crates) stay lone however far you get, because
+   * a wall of bears is not a difficulty curve, it is a brick wall.
+   */
+  private groupSize(def: EnemyDef, score: number, rng: Rng): number {
+    const lo = def.groupMin ?? 1;
+    const hi = def.groupMax ?? 1;
+    if (hi <= 1) return 1;
+    const bonus = Math.min(3, Math.floor(score / 650));
+    return lo + rng.int(hi - lo + 1) + bonus;
   }
 
   private roll(score: number, rng: Rng): EnemyDef | null {
@@ -86,7 +100,7 @@ export class SpawnDirector {
     return i < 0 ? null : pool[i];
   }
 
-  private spawn(w: World, def: EnemyDef): void {
+  private spawn(w: World, def: EnemyDef, room: number): void {
     const rng = w.rng;
     const camY = w.camera.y;
     const top = camY + VIEW_H / 2 + SPAWN_MARGIN;
@@ -123,21 +137,6 @@ export class SpawnDirector {
         break;
     }
 
-    // An unavoidable spawn-kill in a one-hit game is unforgivable.
-    const dx = x - w.player.x;
-    const dy = y - w.player.y;
-    if (dx * dx + dy * dy < SPAWN_MIN_PLAYER_DIST * SPAWN_MIN_PLAYER_DIST) {
-      return;
-    }
-
-    const e = w.enemies.spawn();
-    if (e === null) return; // at cap; the director already checked, be safe
-
-    applyDef(e, def);
-    e.x = x;
-    e.y = y;
-    e.phase = rng.next() * 10;
-
     // Aim inward, with jitter so formations do not look stamped out.
     const toPlayer = Math.atan2(w.player.y - y, w.player.x - x);
     const jitter = (rng.next() - 0.5) * 2 * SPAWN_AIM_JITTER_DEG * DEG;
@@ -146,9 +145,38 @@ export class SpawnDirector {
         ? -Math.PI / 2 + (rng.next() - 0.5) * 0.5 // crates drift downward
         : toPlayer + jitter;
 
-    e.heading = heading;
-    e.vx = Math.cos(heading) * def.speed;
-    e.vy = Math.sin(heading) * def.speed;
-    e.angle = heading - Math.PI / 2;
+    // Lay the group out in a row ACROSS the direction of travel, so it reads
+    // as an advancing line rather than a single-file queue.
+    const n = Math.min(this.groupSize(def, w.score, rng), room);
+    const spacing = def.drawSize * 1.45;
+    const perpX = -Math.sin(heading);
+    const perpY = Math.cos(heading);
+
+    for (let i = 0; i < n; i++) {
+      const off = (i - (n - 1) / 2) * spacing;
+      const ex = x + perpX * off;
+      const ey = y + perpY * off;
+
+      // An unavoidable spawn-kill in a one-hit game is unforgivable, so this
+      // is checked per member - a row is wide enough that one end can be
+      // clear while the other is on top of the player.
+      const dx = ex - w.player.x;
+      const dy = ey - w.player.y;
+      if (dx * dx + dy * dy < SPAWN_MIN_PLAYER_DIST * SPAWN_MIN_PLAYER_DIST) {
+        continue;
+      }
+
+      const e = w.enemies.spawn();
+      if (e === null) return;
+
+      applyDef(e, def);
+      e.x = ex;
+      e.y = ey;
+      e.phase = rng.next() * 10;
+      e.heading = heading;
+      e.vx = Math.cos(heading) * def.speed;
+      e.vy = Math.sin(heading) * def.speed;
+      e.angle = heading - Math.PI / 2;
+    }
   }
 }

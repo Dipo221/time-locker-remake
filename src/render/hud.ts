@@ -1,6 +1,29 @@
 import { COLOR, VIEW_H, VIEW_W } from '../config';
+import type { UiRect } from '../core/input';
 import type { World } from '../game/World';
 import type { Viewport } from './viewport';
+
+/**
+ * Deliberately large. The original shipped a pause button players complained
+ * was too small to hit, and this is a game you play with a thumb already
+ * mid-drag, so the target is ~14% of the screen width.
+ */
+export const PAUSE_BUTTON: UiRect = {
+  id: 'pause',
+  x: VIEW_W - 94,
+  y: 16,
+  w: 78,
+  h: 78,
+};
+
+/** While paused, the whole screen resumes - no need to find a small button. */
+export const RESUME_ZONE: UiRect = {
+  id: 'resume',
+  x: 0,
+  y: 0,
+  w: VIEW_W,
+  h: VIEW_H,
+};
 
 /**
  * Score, coins and the death banner. Drawn in UI space (y down, unflipped), so
@@ -46,6 +69,62 @@ export function drawHud(vp: Viewport, w: World): void {
     ctx.font = '500 24px ui-sans-serif, system-ui, sans-serif';
     ctx.fillText('tap to retry', VIEW_W / 2, VIEW_H * 0.34 + 180);
   }
+}
+
+export function drawPauseButton(vp: Viewport): void {
+  const ctx = vp.ctx;
+  vp.applyUi();
+
+  const b = PAUSE_BUTTON;
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+
+  ctx.fillStyle = 'rgba(250, 249, 247, 0.85)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(30, 32, 36, 0.18)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = COLOR.hud;
+  ctx.fillRect(cx - 10, cy - 12, 7, 24);
+  ctx.fillRect(cx + 3, cy - 12, 7, 24);
+}
+
+/**
+ * A true pause: the main loop stops advancing the clock entirely, so even the
+ * darkness and its churning edge stop. That distinction matters in this game -
+ * the time freeze stops the simulation but NOT the darkness, so if pause left
+ * the darkness creeping it would just be a slower death.
+ */
+export function drawPauseOverlay(vp: Viewport, w: World): void {
+  const ctx = vp.ctx;
+  vp.applyUi();
+
+  ctx.fillStyle = 'rgba(250, 249, 247, 0.9)';
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = COLOR.hud;
+  ctx.font = '700 54px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText('PAUSED', VIEW_W / 2, VIEW_H * 0.42);
+
+  ctx.font = '600 30px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText(`${w.score}`, VIEW_W / 2, VIEW_H * 0.42 + 56);
+
+  ctx.fillStyle = COLOR.hudDim;
+  ctx.font = '500 22px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText(`COINS ${w.coins}`, VIEW_W / 2, VIEW_H * 0.42 + 92);
+  ctx.fillText(
+    'tap anywhere to resume',
+    VIEW_W / 2,
+    VIEW_H * 0.42 + 150,
+  );
+  ctx.fillText('or press Esc', VIEW_W / 2, VIEW_H * 0.42 + 182);
 }
 
 /**

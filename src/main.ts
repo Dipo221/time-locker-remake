@@ -5,7 +5,13 @@ import { TimeScaleController } from './core/timeScale';
 import { World } from './game/World';
 import { DebugOverlay, drawHint } from './render/debugOverlay';
 import { drawWorld } from './render/drawWorld';
-import { drawHud } from './render/hud';
+import {
+  PAUSE_BUTTON,
+  RESUME_ZONE,
+  drawHud,
+  drawPauseButton,
+  drawPauseOverlay,
+} from './render/hud';
 import { precompileShapes } from './render/shapePaths';
 import { Viewport } from './render/viewport';
 
@@ -41,6 +47,8 @@ if (import.meta.env.DEV) {
     tsc,
     input,
     vp,
+    isPaused: () => paused,
+    setPaused: (v: boolean) => setPaused(v),
   };
 }
 
@@ -51,23 +59,70 @@ if (typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(onResize).observe(canvas);
 }
 
-window.addEventListener('keydown', (e) => {
-  if (e.key === '`' || e.key === '~') {
-    overlay.visible = !overlay.visible;
-    e.preventDefault();
-  }
-});
-
 /** Press count at the moment of death, so retry needs a FRESH tap. */
 let deadAtPress = -1;
 /** Hide the control hint once the player has actually dragged. */
 let hinted = true;
+let paused = false;
+
+function setPaused(v: boolean): void {
+  if (v === paused) return;
+  if (v && world.phase !== 'playing') return; // nothing to pause
+  paused = v;
+  // Drop any time-scale momentum, so resuming never carries leftover speed.
+  tsc.kill();
+}
+
+/**
+ * Re-register tap zones every frame, because which zones exist depends on
+ * state: a pause button while playing, the whole screen while paused, and
+ * none at all when dead (there, tap-to-retry goes through pressCount).
+ */
+function syncUiRects(): void {
+  if (paused) input.setUiRects([RESUME_ZONE]);
+  else if (world.phase === 'playing') input.setUiRects([PAUSE_BUTTON]);
+  else input.setUiRects([]);
+}
+syncUiRects();
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === '`' || e.key === '~') {
+    overlay.visible = !overlay.visible;
+    e.preventDefault();
+  } else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+    setPaused(!paused);
+    e.preventDefault();
+  }
+});
+
+// Coming back to a tab mid-run should not drop you straight into a bullet.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) setPaused(true);
+});
 
 startLoop((realDt) => {
   const frame = input.beginFrame(realDt);
+  const tap = input.consumeTap();
+  if (tap === 'pause') setPaused(true);
+  else if (tap === 'resume') setPaused(false);
 
   // Untrustworthy input (blur, tab hide): stop dead, no momentum tail.
   if (input.consumeCancel()) tsc.kill();
+
+  if (paused) {
+    // A TRUE pause: the clock is not advanced at all, so the darkness and its
+    // churning edge stop too. The in-game time freeze deliberately does NOT
+    // stop the darkness; if pause behaved the same way it would just be a
+    // slower death. Input was already drained above, so no path length banks
+    // up and dumps into a timeScale spike on resume.
+    tsc.kill();
+    drawWorld(vp, world, clock);
+    drawHud(vp, world);
+    drawPauseOverlay(vp, world);
+    overlay.draw(vp, world, tsc, clock);
+    syncUiRects();
+    return;
+  }
 
   if (hinted && (frame.pathLength > 40 || world.score > 0)) hinted = false;
 
@@ -96,7 +151,9 @@ startLoop((realDt) => {
 
   drawWorld(vp, world, clock);
   drawHud(vp, world);
+  if (world.phase === 'playing') drawPauseButton(vp);
   drawHint(vp, hinted && world.phase === 'playing');
   overlay.sample(clock);
   overlay.draw(vp, world, tsc, clock);
+  syncUiRects();
 });

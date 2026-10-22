@@ -52,6 +52,14 @@ export interface EnemyDef {
   /** Not spawned below this score. */
   readonly minScore: number;
   readonly spawnWeight: number;
+  /**
+   * How many arrive together. The original sends enemies in rows and flocks
+   * ("birds come in large flocks from the front", "snakes swarm from all
+   * sides"), and a one-at-a-time spawner can never feel like that however
+   * fast you make it. Defaults to a lone spawn when omitted.
+   */
+  readonly groupMin?: number;
+  readonly groupMax?: number;
 }
 
 /**
@@ -76,6 +84,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'none',
     minScore: 0,
     spawnWeight: 30,
+    groupMin: 1,
+    groupMax: 3,
   },
   {
     id: 'bird.black',
@@ -90,6 +100,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'none',
     minScore: 0,
     spawnWeight: 18,
+    groupMin: 3,
+    groupMax: 6,
   },
   {
     id: 'penguin.orange',
@@ -104,6 +116,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'none',
     minScore: 60,
     spawnWeight: 16,
+    groupMin: 1,
+    groupMax: 2,
   },
   {
     id: 'dog.orange',
@@ -118,6 +132,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'none',
     minScore: 120,
     spawnWeight: 14,
+    groupMin: 1,
+    groupMax: 3,
   },
   {
     id: 'dog.purple',
@@ -134,6 +150,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'none',
     minScore: 200,
     spawnWeight: 14,
+    groupMin: 1,
+    groupMax: 2,
   },
   {
     id: 'bear.black',
@@ -178,6 +196,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     drop: 'coin',
     minScore: 0,
     spawnWeight: 16,
+    groupMin: 1,
+    groupMax: 2,
   },
 ];
 

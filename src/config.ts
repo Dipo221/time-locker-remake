@@ -150,12 +150,17 @@ export const CCD_MIN_TARGET_RADIUS = 10;
 export const CCD_MAX_SUBSTEPS = 4;
 
 // ----------------------------------------------------------- SPAWNING
-export const SPAWN_BASE = 1.4;
-export const SPAWN_MIN = 0.33;
-export const SPAWN_HALVING_SCORE = 600;
-export const CAP_BASE = 8;
-export const CAP_STEP = 100;
-export const CAP_MAX = 28;
+// Density was raised after play-testing reported the field looking empty.
+// Most of the fix is group spawning (see EnemyDef.groupMin/groupMax) rather
+// than a shorter interval: arriving in rows and flocks is what the original
+// actually does, and it populates the screen without making every single
+// enemy a separate dodge.
+export const SPAWN_BASE = 0.85;
+export const SPAWN_MIN = 0.22;
+export const SPAWN_HALVING_SCORE = 450;
+export const CAP_BASE = 12;
+export const CAP_STEP = 70;
+export const CAP_MAX = 34;
 export const SPAWN_MARGIN = 60;
 /** An unavoidable spawn-kill in a one-hit game is unforgivable. */
 export const SPAWN_MIN_PLAYER_DIST = 120;
