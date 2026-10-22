@@ -48,12 +48,39 @@ export function resolveCollisions(w: World): void {
     }
   }
 
+  // ---- enemy shots vs enemies (friendly fire) -----------------------------
+  // Straight from the original: enemy bullets damage other enemies. Because
+  // both factions share one projectile type and one pool, this is a handful of
+  // lines rather than a feature - and it rewards the player for positioning so
+  // a turret's line of fire crosses the crowd chasing them.
+  const eshots = w.enemyShots;
+  for (let i = 0; i < eshots.count; i++) {
+    const s = eshots.active[i];
+    if (!s.alive) continue;
+
+    for (let j = 0; j < enemies.count; j++) {
+      const e = enemies.active[j];
+      if (!e.alive) continue;
+      // A shooter cannot hit itself. Generational, so a recycled slot does not
+      // inherit the exemption.
+      if (s.ownerRef === e && s.ownerGen === e.gen) continue;
+
+      const r = s.radius + e.hitboxRadius;
+      if (dist2(s.x, s.y, e.x, e.y) > r * r) continue;
+
+      e.hp -= s.damage;
+      burst(w.particles, w.rng, s.x, s.y, 3, 120, e.colorRole);
+      if (e.hp <= 0) killEnemy(w, e);
+      s.alive = false;
+      break;
+    }
+  }
+
   if (!p.alive || w.phase !== 'playing') return;
   const invuln = p.invulnRealFor > 0;
 
   // ---- enemy shots vs player ----------------------------------------------
   if (!invuln) {
-    const eshots = w.enemyShots;
     for (let i = 0; i < eshots.count; i++) {
       const s = eshots.active[i];
       if (!s.alive) continue;

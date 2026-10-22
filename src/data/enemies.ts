@@ -1,4 +1,19 @@
+import type { EmitterSpec } from '../game/weapons/types';
 import type { ShapeId } from './shapes';
+
+/**
+ * Enemy fire is deliberately slow and sparse compared to the player's. The
+ * player can freeze time to read a bullet pattern, so enemy shots are threats
+ * to route around rather than a bullet-hell curtain to thread.
+ */
+const ENEMY_SHOT = {
+  shape: 'bulletRound',
+  size: 13,
+  speed: 210,
+  damage: 1,
+  lifetime: 3.4,
+  maxHits: 1,
+} as const;
 
 /**
  * Enemy roster. Milestone 1 ships 7 of the original's 30; the rest are pure
@@ -60,6 +75,25 @@ export interface EnemyDef {
    */
   readonly groupMin?: number;
   readonly groupMax?: number;
+  /**
+   * Enemies fire through the SAME EmitterSpec the player's weapons use, into
+   * the same projectile pool, through the same behaviour code. The only
+   * differences are the faction flag and the colour role. That shared type is
+   * why "enemy bullets damage other enemies" costs one row in the collision
+   * matrix rather than a feature.
+   */
+  readonly weapon?: EmitterSpec;
+  /**
+   * 'facing' fires along the direction of travel (a tank's main gun).
+   * 'player' leads at the player wherever it is (infantry, turrets).
+   */
+  readonly aim?: 'facing' | 'player';
+  /**
+   * Air units. The original only lets some homing weapons touch them; until
+   * MISSILE and MINE BOT exist, nothing in the roster sets this, because an
+   * unkillable enemy is worse than a missing one.
+   */
+  readonly flying?: boolean;
 }
 
 /**
@@ -167,6 +201,161 @@ export const ENEMIES: readonly EnemyDef[] = [
     minScore: 300,
     spawnWeight: 10,
   },
+  // ---------------------------------------------------------------------
+  // Shooters. Up to here every enemy killed by contact only, which made the
+  // whole game one-dimensional: positional dodging and nothing else.
+  // ---------------------------------------------------------------------
+
+  /**
+   * Vertical turret: stationary, long interval, fires along its own axis.
+   * Rated 4 for durability but 1 for danger in the source - a landmark to
+   * route around rather than a threat that chases you.
+   */
+  {
+    id: 'turret.vertical',
+    colorRole: 'black',
+    shape: 'block',
+    drawSize: 38,
+    hitboxRadius: 15,
+    hp: 4,
+    archetype: 'turret',
+    speed: 0,
+    scoreValue: 30,
+    drop: 'none',
+    minScore: 140,
+    spawnWeight: 12,
+    aim: 'facing',
+    weapon: {
+      id: 'turretV',
+      anglesDeg: [0, 180],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 1.5,
+      phase: 0,
+      muzzleY: 20,
+      projectile: ENEMY_SHOT,
+    },
+  },
+
+  /**
+   * Horizontal turret: the source rates this danger 5 and says its fire is
+   * dense enough that you cannot squeeze through. It is a wall you must
+   * destroy or go around, and the first enemy that really rewards stopping
+   * time to read the gap.
+   */
+  {
+    id: 'turret.horizontal',
+    colorRole: 'purple',
+    shape: 'block',
+    drawSize: 38,
+    hitboxRadius: 15,
+    hp: 2,
+    archetype: 'turret',
+    speed: 0,
+    scoreValue: 35,
+    drop: 'none',
+    minScore: 260,
+    spawnWeight: 10,
+    aim: 'facing',
+    weapon: {
+      id: 'turretH',
+      anglesDeg: [90, 270],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 0.42,
+      phase: 0,
+      muzzleY: 18,
+      projectile: ENEMY_SHOT,
+    },
+  },
+
+  /** Tank: moves while firing, mostly forward. */
+  {
+    id: 'tank.black',
+    colorRole: 'black',
+    shape: 'block',
+    drawSize: 40,
+    hitboxRadius: 16,
+    hp: 4,
+    archetype: 'straight',
+    speed: 85,
+    scoreValue: 35,
+    drop: 'none',
+    minScore: 200,
+    spawnWeight: 11,
+    aim: 'facing',
+    weapon: {
+      id: 'tankGun',
+      anglesDeg: [0],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 1.15,
+      phase: 0.2,
+      muzzleY: 22,
+      projectile: ENEMY_SHOT,
+    },
+  },
+
+  /** Homing tank: less persistent than other homers, but it aims at you. */
+  {
+    id: 'tank.orange',
+    colorRole: 'orange',
+    shape: 'block',
+    drawSize: 40,
+    hitboxRadius: 16,
+    hp: 4,
+    archetype: 'homing',
+    speed: 70,
+    scoreValue: 45,
+    drop: 'none',
+    minScore: 420,
+    spawnWeight: 9,
+    aim: 'player',
+    weapon: {
+      id: 'tankGunAimed',
+      anglesDeg: [0],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 1.4,
+      phase: 0.5,
+      muzzleY: 22,
+      projectile: ENEMY_SHOT,
+    },
+  },
+
+  /**
+   * Infantry: individually trivial (speed 1, durability 1) but the source
+   * rates them danger 5, because they swarm from every side and shoot while
+   * walking. Weak, numerous and armed is the dangerous combination.
+   */
+  {
+    id: 'infantry',
+    colorRole: 'orange',
+    shape: 'locker',
+    drawSize: 26,
+    hitboxRadius: 10,
+    hp: 1,
+    archetype: 'homing',
+    speed: 52,
+    scoreValue: 15,
+    drop: 'none',
+    minScore: 320,
+    spawnWeight: 14,
+    groupMin: 2,
+    groupMax: 4,
+    aim: 'player',
+    weapon: {
+      id: 'rifle',
+      anglesDeg: [0],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 2.1,
+      phase: 0.4,
+      muzzleY: 14,
+      projectile: { ...ENEMY_SHOT, size: 11, speed: 250 },
+    },
+  },
+
   /** Blue "?" crate: the weapon source. */
   {
     id: 'crate.weapon',

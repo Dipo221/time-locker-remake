@@ -27,6 +27,8 @@ export interface Enemy extends Poolable {
   phase: number;
   /** Heading for straight/zigzag movement, radians. */
   heading: number;
+  /** SCALED seconds until this enemy's next shot. */
+  fireCooldown: number;
 }
 
 export function createEnemy(): Enemy {
@@ -51,6 +53,7 @@ export function createEnemy(): Enemy {
     frozenFor: 0,
     phase: 0,
     heading: 0,
+    fireCooldown: 0,
   };
 }
 
@@ -73,6 +76,7 @@ export function resetEnemy(e: Enemy): void {
   e.frozenFor = 0;
   e.phase = 0;
   e.heading = 0;
+  e.fireCooldown = 0;
 }
 
 /** Apply a table entry to a freshly spawned enemy. */
@@ -87,4 +91,6 @@ export function applyDef(e: Enemy, def: EnemyDef): void {
   e.speed = def.speed;
   e.drop = def.drop;
   e.scoreValue = def.scoreValue;
+  e.fireCooldown =
+    def.weapon === undefined ? 0 : def.weapon.cadence * def.weapon.phase;
 }

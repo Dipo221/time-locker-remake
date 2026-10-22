@@ -1,6 +1,7 @@
 import type { Poolable } from '../../core/pool';
 import type { ShapeId } from '../../data/shapes';
 
+
 /** 0 = fired by the player, 1 = fired by an enemy. */
 export type Faction = 0 | 1;
 
@@ -23,6 +24,13 @@ export interface Projectile extends Poolable {
   /** Pierce budget. 1 = dies on first hit; Infinity = JUSTIN. */
   maxHits: number;
   hits: number;
+  /**
+   * Who fired this, so a shooter cannot hit itself while its own bullets can
+   * still hit its neighbours. Generational: the shooter may be recycled before
+   * the bullet lands, and we must not then exempt whatever reused the slot.
+   */
+  ownerRef: Poolable | null;
+  ownerGen: number;
 }
 
 export function createProjectile(): Projectile {
@@ -44,6 +52,8 @@ export function createProjectile(): Projectile {
     shape: 'bulletLong',
     maxHits: 1,
     hits: 0,
+    ownerRef: null,
+    ownerGen: -1,
   };
 }
 
@@ -61,4 +71,6 @@ export function resetProjectile(p: Projectile): void {
   p.shape = 'bulletLong';
   p.maxHits = 1;
   p.hits = 0;
+  p.ownerRef = null;
+  p.ownerGen = -1;
 }

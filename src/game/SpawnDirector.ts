@@ -140,10 +140,17 @@ export class SpawnDirector {
     // Aim inward, with jitter so formations do not look stamped out.
     const toPlayer = Math.atan2(w.player.y - y, w.player.x - x);
     const jitter = (rng.next() - 0.5) * 2 * SPAWN_AIM_JITTER_DEG * DEG;
-    const heading =
-      def.archetype === 'drift'
-        ? -Math.PI / 2 + (rng.next() - 0.5) * 0.5 // crates drift downward
-        : toPlayer + jitter;
+    let heading: number;
+    if (def.archetype === 'drift') {
+      heading = -Math.PI / 2 + (rng.next() - 0.5) * 0.5; // crates drift downward
+    } else if (def.archetype === 'turret') {
+      // Turrets never move, and their firing axis is read off the heading, so
+      // it is pinned to +Y: the vertical turret's 0/180 then fires up and
+      // down, and the horizontal one's 90/270 fires across the corridor.
+      heading = Math.PI / 2;
+    } else {
+      heading = toPlayer + jitter;
+    }
 
     // Lay the group out in a row ACROSS the direction of travel, so it reads
     // as an advancing line rather than a single-file queue.
@@ -177,6 +184,12 @@ export class SpawnDirector {
       e.vx = Math.cos(heading) * def.speed;
       e.vy = Math.sin(heading) * def.speed;
       e.angle = heading - Math.PI / 2;
+
+      // Desynchronise a group's guns, so four infantry do not fire as one
+      // volley you either dodge entirely or not at all.
+      if (def.weapon !== undefined) {
+        e.fireCooldown += rng.next() * def.weapon.cadence * 0.7;
+      }
     }
   }
 }

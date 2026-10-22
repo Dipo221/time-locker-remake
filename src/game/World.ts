@@ -29,6 +29,7 @@ import type { Projectile } from './entities/Projectile';
 import { createProjectile, resetProjectile } from './entities/Projectile';
 import { resolveCollisions } from './systems/collisionSystem';
 import { updateEnemies } from './systems/enemySystem';
+import { updateEnemyGuns } from './systems/enemyWeaponSystem';
 import { updateParticles } from './systems/particleSystem';
 import { updatePickups } from './systems/pickupSystem';
 import { tickInvincibility, updatePlayerBody } from './systems/playerSystem';
@@ -178,6 +179,7 @@ export class World {
     // freeze - achieved with no special-casing anywhere.
     this.spawner.update(this, S);
     updateEnemies(this.enemies, this.player, this.darkness.y, this.camera.y, S);
+    updateEnemyGuns(this, S);
     updatePlayerGuns(this, S);
     updateProjectiles(this.playerShots, this.camera.y, S);
     updateProjectiles(this.enemyShots, this.camera.y, S);

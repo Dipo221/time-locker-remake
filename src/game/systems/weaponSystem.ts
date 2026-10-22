@@ -1,6 +1,6 @@
 import type { ScaledDt } from '../../core/clock';
 import type { World } from '../World';
-import type { RuntimeEmitter } from '../weapons/types';
+import { emit } from '../weapons/fire';
 
 /**
  * The player's guns run on the SCALED clock, so a frozen player fires nothing.
@@ -24,42 +24,7 @@ export function updatePlayerGuns(w: World, dt: ScaledDt): void {
     // Accumulate rather than assign, so a very high rate does not lose volleys.
     e.cooldown += e.cadence;
     if (e.cooldown < 0) e.cooldown = e.cadence;
-    fire(w, e);
-  }
-}
-
-function fire(w: World, e: RuntimeEmitter): void {
-  const p = w.player;
-
-  for (let ai = 0; ai < e.anglesRad.length; ai++) {
-    const base = e.anglesRad[ai];
-
-    for (let b = 0; b < e.burst; b++) {
-      // Fan the burst across the spread, centred on the base angle.
-      const t = e.burst === 1 ? 0 : b / (e.burst - 1) - 0.5;
-      const a = base + t * e.spreadRad;
-
-      const shot = w.playerShots.spawn();
-      // Projectiles fail soft: skip the shot and let the overlay's miss
-      // counter report it, rather than stalling the frame.
-      if (shot === null) return;
-
-      const sx = Math.sin(a);
-      const cy = Math.cos(a);
-
-      shot.x = p.x + sx * e.muzzleY;
-      shot.y = p.y + cy * e.muzzleY;
-      shot.vx = sx * e.speed;
-      shot.vy = cy * e.speed;
-      shot.angle = -a;
-      shot.radius = e.size * 0.42;
-      shot.size = e.size;
-      shot.damage = e.damage;
-      shot.life = e.lifetime;
-      shot.faction = 0;
-      shot.shape = e.shape;
-      shot.maxHits = e.maxHits;
-      shot.hits = 0;
-    }
+    // The player always faces up, so "forward" is always +Y.
+    emit(w.playerShots, e, p.x, p.y, Math.PI / 2, 0, null);
   }
 }

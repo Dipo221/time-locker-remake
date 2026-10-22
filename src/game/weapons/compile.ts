@@ -141,6 +141,15 @@ function modifierFor(
   return null;
 }
 
+/**
+ * Compile one standalone emitter, with no stacking and no character modifiers.
+ * Enemy weapons come through here: same type, same pool, same firing code as
+ * the player's guns.
+ */
+export function compileEmitter(spec: EmitterSpec): RuntimeEmitter {
+  return materialise(spec, null);
+}
+
 function materialise(
   spec: EmitterSpec,
   patch: EmitterPatch | null,
