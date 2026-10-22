@@ -8,14 +8,17 @@ import {
   VIEW_W,
 } from '../config';
 import type { ShapeId } from '../data/shapes';
-import type { World } from '../game/World';
 import type { Pool } from '../core/pool';
+import type { World } from '../game/World';
+import type { Enemy } from '../game/entities/Enemy';
+import type { Particle } from '../game/entities/Particle';
+import { PARTICLE_COLORS } from '../game/entities/Particle';
+import type { Pickup } from '../game/entities/Pickup';
 import type { Projectile } from '../game/entities/Projectile';
+import { drawDarkness } from './drawDarkness';
 import { getShape } from './shapePaths';
 import type { Viewport } from './viewport';
-import { drawDarkness } from './drawDarkness';
 
-/** Spacing of the background motion marks, in world units. */
 const MARK_SPACING = 120;
 
 export function drawShape(
@@ -42,6 +45,21 @@ export function drawShape(
   ctx.restore();
 }
 
+function enemyColor(role: string): string {
+  switch (role) {
+    case 'orange':
+      return COLOR.enemyOrange;
+    case 'purple':
+      return COLOR.enemyPurple;
+    case 'green':
+      return COLOR.enemyGreen;
+    case 'blue':
+      return COLOR.pickup;
+    default:
+      return COLOR.enemyBlack;
+  }
+}
+
 /**
  * Horizontal tick marks at fixed world positions. Without these a near-empty
  * white field gives no sense of motion at all, and you cannot tell a frozen
@@ -57,9 +75,88 @@ function drawBackgroundMarks(
 
   ctx.fillStyle = COLOR.gridMark;
   for (let y = first; y <= top; y += MARK_SPACING) {
-    for (let x = 30; x < VIEW_W; x += 90) {
-      ctx.fillRect(x, y, 26, 3);
+    for (let x = 30; x < VIEW_W; x += 90) ctx.fillRect(x, y, 26, 3);
+  }
+}
+
+/**
+ * Debris is drawn UNDER everything else and kept small. The original was
+ * criticised for splatter so coarse that players could not tell a shard from
+ * an incoming bullet; layering and size both help, and particles never use the
+ * reserved enemy-fire hue.
+ *
+ * Batched by colour so fillStyle changes a handful of times rather than once
+ * per particle.
+ */
+function drawParticles(
+  ctx: CanvasRenderingContext2D,
+  pool: Pool<Particle>,
+): void {
+  for (let c = 0; c < PARTICLE_COLORS.length; c++) {
+    let any = false;
+    for (let i = 0; i < pool.count; i++) {
+      const p = pool.active[i];
+      if (p.colorIndex !== c) continue;
+      if (!any) {
+        ctx.fillStyle = PARTICLE_COLORS[c];
+        any = true;
+      }
+      const a = p.life / p.maxLife;
+      const s = p.size * (0.5 + a * 0.5);
+      ctx.globalAlpha = Math.min(1, a * 1.6);
+      ctx.fillRect(p.x - s * 0.5, p.y - s * 0.5, s, s);
     }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPickups(
+  ctx: CanvasRenderingContext2D,
+  pool: Pool<Pickup>,
+  realElapsed: number,
+): void {
+  const pulse = 0.5 + 0.5 * Math.sin(realElapsed * 3);
+  for (let i = 0; i < pool.count; i++) {
+    const k = pool.active[i];
+    const isWeapon = k.kind === 'weapon';
+    const body = isWeapon ? COLOR.pickup : COLOR.enemyGreen;
+
+    // A halo, because the original gave no feedback at all when an upgrade
+    // dropped and players asked for exactly this.
+    ctx.beginPath();
+    ctx.arc(k.x, k.y, 16 + pulse * 7, 0, Math.PI * 2);
+    ctx.fillStyle = isWeapon
+      ? 'rgba(43, 108, 246, 0.16)'
+      : 'rgba(46, 184, 114, 0.16)';
+    ctx.fill();
+
+    drawShape(
+      ctx,
+      isWeapon ? 'block' : 'coin',
+      k.x,
+      k.y,
+      isWeapon ? 26 : 22,
+      isWeapon ? Math.sin(k.phase * 2) * 0.25 : 0,
+      body,
+      COLOR.bg,
+    );
+  }
+}
+
+function drawEnemies(ctx: CanvasRenderingContext2D, pool: Pool<Enemy>): void {
+  for (let i = 0; i < pool.count; i++) {
+    const e = pool.active[i];
+    const frozen = e.frozenFor > 0;
+    drawShape(
+      ctx,
+      e.shape,
+      e.x,
+      e.y,
+      e.drawSize,
+      e.angle,
+      frozen ? COLOR.freeze : enemyColor(e.colorRole),
+      COLOR.bg,
+    );
   }
 }
 
@@ -112,19 +209,16 @@ function drawEnemyShots(
     const p = pool.active[i];
     const r = Math.max(p.size * 0.5, ENEMY_BULLET_MIN_RADIUS);
 
-    // Outer pulsing ring.
     ctx.beginPath();
     ctx.arc(p.x, p.y, r + 2.5 + pulse * 2.2, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255, 59, 31, 0.22)';
     ctx.fill();
 
-    // White separator, so it never melts into the background or own fire.
     ctx.beginPath();
     ctx.arc(p.x, p.y, r + 1.6, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
 
-    // Core.
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fillStyle = COLOR.enemyShot;
@@ -140,13 +234,21 @@ function drawEnemyShots(
 export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
   const ctx = vp.ctx;
 
-  // Letterbox surround, in raw device pixels.
   vp.applyDevice();
   ctx.fillStyle = COLOR.pageBg;
   ctx.fillRect(0, 0, vp.canvas.width, vp.canvas.height);
 
-  // Play field.
+  // Clip everything that follows to the play rect. The world extends past the
+  // 9:16 field in both axes (bullets, enemies and spawn margins all live
+  // outside it), so without this they are drawn over the letterbox surround.
+  // save/restore carries the clip AND the transform, so setTransform inside
+  // the clipped region is safe.
+  ctx.save();
   vp.applyUi();
+  ctx.beginPath();
+  ctx.rect(0, 0, VIEW_W, VIEW_H);
+  ctx.clip();
+
   ctx.fillStyle = COLOR.bg;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
@@ -154,24 +256,18 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
   vp.applyWorld(w.camera.y);
 
   drawBackgroundMarks(ctx, w.camera.y);
+  drawParticles(ctx, w.particles);
+  drawPickups(ctx, w.pickups, clock.realElapsed);
+  drawEnemies(ctx, w.enemies);
 
   const p = w.player;
   if (p.alive) {
-    // Invincibility blink runs on the real clock, matching the timer itself.
+    // The invincibility blink runs on the real clock, matching the timer.
     const blink =
       p.invulnRealFor > 0 &&
       Math.sin(clock.realElapsed * PLAYER_INVULN_BLINK_HZ * Math.PI * 2) < 0;
     if (!blink) {
-      drawShape(
-        ctx,
-        p.shape,
-        p.x,
-        p.y,
-        p.drawSize,
-        0,
-        COLOR.ink,
-        COLOR.playerShot,
-      );
+      drawShape(ctx, p.shape, p.x, p.y, p.drawSize, 0, COLOR.ink, COLOR.bg);
     }
   }
 
@@ -179,6 +275,8 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
   drawEnemyShots(ctx, w.enemyShots, clock.realElapsed);
 
   drawDarkness(ctx, w.darkness, w.camera.y, clock.realElapsed);
+
+  ctx.restore();
 
   // ---- back to UI space for the frame and anything with text --------------
   vp.applyUi();

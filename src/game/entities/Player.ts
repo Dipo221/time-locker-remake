@@ -1,4 +1,8 @@
-import { PLAYER_DRAW_SIZE, PLAYER_HITBOX_DEFAULT } from '../../config';
+import {
+  PLAYER_DRAG_GAIN,
+  PLAYER_DRAW_SIZE,
+  PLAYER_HITBOX_DEFAULT,
+} from '../../config';
 import type { ShapeId } from '../../data/shapes';
 
 export interface Player {
@@ -13,6 +17,8 @@ export interface Player {
   hitboxRadius: number;
   drawSize: number;
   shape: ShapeId;
+  /** Per-character drag responsiveness; heavier characters are below 1. */
+  dragGain: number;
   alive: boolean;
   /** REAL seconds. Ticks down even while time is frozen, as in the original. */
   invulnRealFor: number;
@@ -29,6 +35,7 @@ export function createPlayer(): Player {
     hitboxRadius: PLAYER_HITBOX_DEFAULT,
     drawSize: PLAYER_DRAW_SIZE,
     shape: 'locker',
+    dragGain: PLAYER_DRAG_GAIN,
     alive: true,
     invulnRealFor: 0,
     fireCooldown: 0,

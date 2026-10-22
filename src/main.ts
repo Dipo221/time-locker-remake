@@ -14,12 +14,19 @@ if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error('#stage canvas not found');
 }
 
+// Dev switches until the lobby exists: ?char=wideRhino, ?char=antBear, ?seed=1
+const params = new URLSearchParams(location.search);
+
 const vp = new Viewport(canvas);
 const input = new Input(vp);
 const clock = new ClockSource();
 const tsc = new TimeScaleController();
-const world = new World();
+const world = new World(params.get('char') ?? undefined);
 const overlay = new DebugOverlay();
+
+const seedParam = params.get('seed');
+if (seedParam !== null) world.reset(Number(seedParam) >>> 0);
+if (params.get('debug') === '0') overlay.visible = false;
 
 precompileShapes();
 input.attach();
@@ -62,7 +69,7 @@ startLoop((realDt) => {
   // Untrustworthy input (blur, tab hide): stop dead, no momentum tail.
   if (input.consumeCancel()) tsc.kill();
 
-  if (hinted && frame.pathLength > 40) hinted = false;
+  if (hinted && (frame.pathLength > 40 || world.score > 0)) hinted = false;
 
   let timeScale = tsc.update(
     frame.pathLength,

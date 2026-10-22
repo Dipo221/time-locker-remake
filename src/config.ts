@@ -102,6 +102,11 @@ export const CAMERA_DARKNESS_SLACK = 0.35;
  * AND lose ground at the full darkness speed.
  */
 export const DARKNESS_BASE_SPEED = 46;
+/**
+ * Note this starts ABOVE DARKNESS_CATCHUP_GAP, so every run opens with the
+ * darkness rubber-banding quickly down to the 520 equilibrium. That fast
+ * initial close is the intended 'here it comes' moment, not a bug.
+ */
 export const DARKNESS_START_GAP = 700;
 /** Beyond this it accelerates: you cannot simply outrun it forever. */
 export const DARKNESS_CATCHUP_GAP = 520;
@@ -112,7 +117,11 @@ export const DARKNESS_MAX_GAP = 900;
 export const DARKNESS_KILL_INSET = 6;
 export const DARKNESS_FEATHER = 90;
 /** Score at which base speed has doubled. */
-export const DARKNESS_RAMP_SCORE = 1200;
+// A 4-minute sim run hit the 2x ceiling by score ~1200, which demanded a
+// sustained 92 u/s just to stay alive and pushed the escape time scale to
+// 0.26, above the intended 0.10-0.25 band. Ramping over a longer score
+// range keeps the mid-game inside the band.
+export const DARKNESS_RAMP_SCORE = 2500;
 export const DARKNESS_RAMP_MAX = 2.0;
 export const DARKNESS_CONTINUE_PUSHBACK = 600;
 
@@ -123,14 +132,13 @@ export const BASE_BULLET_DAMAGE = 1;
 export const BASE_BULLET_SIZE = 9;
 export const BASE_BULLET_LIFETIME = 2.2;
 /**
- * Unlimited stacking needs a structural answer, not a cap: past these limits
- * further stacks stop adding geometry and fold into multipliers instead, so the
- * player keeps getting stronger forever against a flat performance ceiling.
+ * Unlimited stacking needs a structural answer, not a cap. Past this ceiling
+ * barrels are scaled down to fit and damage is multiplied by exactly the ratio
+ * of barrels lost, so firepower keeps rising forever against a flat
+ * performance ceiling. See weapons/compile.ts for the monotonicity contract.
  */
 export const LOADOUT_MAX_BARRELS = 48;
 export const LOADOUT_MAX_EMITTERS = 64;
-export const LOADOUT_OVERFLOW_DAMAGE = 1.08;
-export const LOADOUT_OVERFLOW_CADENCE = 0.97;
 export const BEHAVIOUR_SLOTS = 4;
 /** Slow enough that you can out-manoeuvre an orange homer. */
 export const TURN_HOMING = 110;
