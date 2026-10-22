@@ -71,6 +71,55 @@ export function drawHud(vp: Viewport, w: World): void {
   }
 }
 
+/**
+ * Boss health, and a warning while it is still above the view.
+ *
+ * Both earn their place. A boss carries hundreds of hit points, so without a
+ * bar the player cannot tell a winnable fight from a hopeless one and will
+ * simply run. And a boss that arrives unannounced in a one-hit-death game is
+ * just an ambush - the warning is there so the approach is the player's cue to
+ * reposition, which is exactly what the time freeze is for.
+ */
+export function drawBossBar(vp: Viewport, w: World): void {
+  const boss = w.bossAlive();
+  if (boss === null || w.phase !== 'playing') return;
+
+  const ctx = vp.ctx;
+  vp.applyUi();
+
+  const name = boss.def.displayName ?? 'BOSS';
+  const approaching = boss.y > w.camera.y + VIEW_H / 2;
+
+  if (approaching) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = COLOR.enemyShot;
+    ctx.font = '700 28px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillText(`! ${name} APPROACHING`, VIEW_W / 2, 150);
+    return;
+  }
+
+  const x = 26;
+  const y = 126;
+  const barW = VIEW_W - 52;
+  const barH = 13;
+  const frac = Math.max(0, Math.min(1, boss.hp / boss.maxHp));
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = COLOR.boss;
+  ctx.font = '700 17px ui-sans-serif, system-ui, sans-serif';
+  ctx.fillText(name, x, y - 5);
+
+  ctx.fillStyle = 'rgba(36, 26, 46, 0.14)';
+  ctx.fillRect(x, y, barW, barH);
+  ctx.fillStyle = COLOR.boss;
+  ctx.fillRect(x, y, barW * frac, barH);
+  ctx.strokeStyle = 'rgba(36, 26, 46, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, barW, barH);
+}
+
 export function drawPauseButton(vp: Viewport): void {
   const ctx = vp.ctx;
   vp.applyUi();

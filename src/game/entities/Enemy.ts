@@ -29,6 +29,13 @@ export interface Enemy extends Poolable {
   heading: number;
   /** SCALED seconds until this enemy's next shot. */
   fireCooldown: number;
+  /** Bosses persist until killed and drive the health bar. */
+  isBoss: boolean;
+  /** Starting hp, so the health bar has a denominator. */
+  maxHp: number;
+  /** charger: SCALED seconds left in the current windup or dash. */
+  chargeTimer: number;
+  charging: boolean;
 }
 
 export function createEnemy(): Enemy {
@@ -54,6 +61,10 @@ export function createEnemy(): Enemy {
     phase: 0,
     heading: 0,
     fireCooldown: 0,
+    isBoss: false,
+    maxHp: 1,
+    chargeTimer: 0,
+    charging: false,
   };
 }
 
@@ -77,6 +88,10 @@ export function resetEnemy(e: Enemy): void {
   e.phase = 0;
   e.heading = 0;
   e.fireCooldown = 0;
+  e.isBoss = false;
+  e.maxHp = 1;
+  e.chargeTimer = 0;
+  e.charging = false;
 }
 
 /** Apply a table entry to a freshly spawned enemy. */
@@ -93,4 +108,8 @@ export function applyDef(e: Enemy, def: EnemyDef): void {
   e.scoreValue = def.scoreValue;
   e.fireCooldown =
     def.weapon === undefined ? 0 : def.weapon.cadence * def.weapon.phase;
+  e.isBoss = def.isBoss === true;
+  e.maxHp = def.hp;
+  e.chargeTimer = def.chargeWindup ?? 0;
+  e.charging = false;
 }

@@ -34,7 +34,8 @@ export type MoveArchetype =
   | 'zigzag'
   | 'drift'
   | 'turret'
-  | 'orbitPlayer';
+  | 'orbitPlayer'
+  | 'charger';
 
 export type ColorRole =
   | 'black'
@@ -94,6 +95,19 @@ export interface EnemyDef {
    * unkillable enemy is worse than a missing one.
    */
   readonly flying?: boolean;
+
+  // --- boss-only ---------------------------------------------------------
+  /** Bosses persist until killed: no offscreen cull, no death by darkness. */
+  readonly isBoss?: boolean;
+  /** Shown on the boss health bar. */
+  readonly displayName?: string;
+  /** orbitPlayer: the standoff distance it tries to hold while circling. */
+  readonly orbitRadius?: number;
+  /** charger: seconds of telegraphed pause before each dash. */
+  readonly chargeWindup?: number;
+  /** charger: dash speed, and how long a dash lasts. */
+  readonly chargeSpeed?: number;
+  readonly chargeDuration?: number;
 }
 
 /**

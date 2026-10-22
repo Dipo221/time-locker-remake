@@ -217,6 +217,12 @@ export const COLOR = {
   enemyOrange: '#f08a1e',
   enemyPurple: '#8b4bd8',
   enemyGreen: '#2eb872',
+  /**
+   * Bosses read by silhouette and sheer size, so this stays dark and stays
+   * well clear of the reserved enemy-fire hue - a boss the same colour as the
+   * bullets would undo the legibility work.
+   */
+  boss: '#241a2e',
   pickup: '#2b6cf6',
   darkness: '#06070a',
   hud: '#1e2024',
@@ -243,6 +249,6 @@ export const COLLISION_MS_BUDGET = 1.5;
 export const FLAGS = {
   lobby: false,
   shop: false,
-  bosses: false,
+  bosses: true,
   save: false,
 };

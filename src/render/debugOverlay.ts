@@ -83,7 +83,8 @@ export class DebugOverlay {
     vp.applyUi();
 
     const x = 18;
-    let y = 118;
+    // Clear of the boss health bar, which sits just under the coin count.
+    let y = 174;
     const lh = 19;
 
     ctx.textAlign = 'left';

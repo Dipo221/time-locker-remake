@@ -53,6 +53,8 @@ function enemyColor(role: string): string {
       return COLOR.enemyPurple;
     case 'green':
       return COLOR.enemyGreen;
+    case 'boss':
+      return COLOR.boss;
     case 'blue':
       return COLOR.pickup;
     default:

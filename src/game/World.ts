@@ -69,6 +69,8 @@ export class World {
 
   score = 0;
   coins = 0;
+  /** How many bosses have been spawned this run. Drives schedule and scaling. */
+  bossesSpawned = 0;
   phase: Phase = 'playing';
   deathCause: DeathCause = null;
   /** REAL seconds of slow-motion hold after dying. */
@@ -134,6 +136,7 @@ export class World {
 
     this.score = 0;
     this.coins = 0;
+    this.bossesSpawned = 0;
     this.phase = 'playing';
     this.deathCause = null;
     this.deathHold = 0;
@@ -152,6 +155,19 @@ export class World {
   rollWeapon(): WeaponId {
     const i = this.rng.weighted(this.weaponWeights);
     return WEAPON_IDS[i < 0 ? 0 : i];
+  }
+
+  /**
+   * The live boss, if any. Scanning is fine: the enemy pool is at most a few
+   * dozen entries and this runs once per frame.
+   */
+  bossAlive(): Enemy | null {
+    const pool = this.enemies;
+    for (let i = 0; i < pool.count; i++) {
+      const e = pool.active[i];
+      if (e.alive && e.isBoss) return e;
+    }
+    return null;
   }
 
   /**

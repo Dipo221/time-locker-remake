@@ -39,6 +39,10 @@ export type ShapeId =
   | 'bear'
   | 'block'
   | 'coin'
+  | 'mammoth'
+  | 'gorilla'
+  | 'dino'
+  | 'insect'
   | 'bulletRound'
   | 'bulletLong';
 
@@ -122,6 +126,82 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
     parts: [
       { kind: 'circle', x: 0, y: 0, r: 0.4, fill: 'body' },
       { kind: 'circle', x: 0, y: 0, r: 0.22, fill: 'accent' },
+    ],
+  },
+
+  // --- bosses -----------------------------------------------------------
+  // Drawn large, so these carry more detail than the rank-and-file. Each
+  // needs a distinct silhouette at a glance: a player who has to squint at a
+  // boss to know which one it is cannot plan against it.
+
+  /** Mammoth: the orthodox boss. Bulk, tusks, trunk. */
+  mammoth: {
+    parts: [
+      { kind: 'circle', x: 0, y: -0.1, r: 0.33, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.2, r: 0.25, fill: 'body' },
+      ...sym({ kind: 'circle', x: 0.26, y: 0.3, r: 0.11, fill: 'body' }),
+      { kind: 'rect', x: -0.07, y: 0.26, w: 0.14, h: 0.28, fill: 'body' },
+      ...sym({
+        kind: 'poly',
+        points: [0.14, 0.34, 0.33, 0.5, 0.36, 0.38, 0.2, 0.26],
+        fill: 'accent',
+      }),
+      ...sym({ kind: 'rect', x: 0.12, y: -0.46, w: 0.11, h: 0.18, fill: 'body' }),
+    ],
+  },
+
+  /** Gorilla: faster than you. Broad shoulders, long arms. */
+  gorilla: {
+    parts: [
+      { kind: 'circle', x: 0, y: -0.06, r: 0.3, fill: 'body' },
+      ...sym({ kind: 'circle', x: 0.3, y: 0.06, r: 0.15, fill: 'body' }),
+      ...sym({
+        kind: 'poly',
+        points: [0.26, 0.14, 0.44, -0.16, 0.3, -0.3, 0.18, -0.08],
+        fill: 'body',
+      }),
+      { kind: 'circle', x: 0, y: 0.26, r: 0.19, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.3, r: 0.1, fill: 'accent' },
+    ],
+  },
+
+  /** Dinosaur: the most durable, and big enough to block the view. */
+  dino: {
+    parts: [
+      {
+        kind: 'poly',
+        points: [0, -0.5, 0.1, -0.2, 0.22, 0.04, 0.1, 0.24, -0.1, 0.24, -0.22, 0.04, -0.1, -0.2],
+        fill: 'body',
+      },
+      { kind: 'circle', x: 0, y: 0.3, r: 0.17, fill: 'body' },
+      {
+        kind: 'poly',
+        points: [-0.14, 0.34, 0.14, 0.34, 0.1, 0.5, -0.1, 0.5],
+        fill: 'accent',
+      },
+      ...sym({
+        kind: 'poly',
+        points: [0.2, 0.0, 0.42, -0.1, 0.22, -0.18],
+        fill: 'body',
+      }),
+      ...sym({ kind: 'rect', x: 0.08, y: -0.44, w: 0.1, h: 0.16, fill: 'body' }),
+    ],
+  },
+
+  /** Insect: pauses, then closes fast. Segmented, many legs. */
+  insect: {
+    parts: [
+      { kind: 'circle', x: 0, y: -0.22, r: 0.19, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.02, r: 0.22, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.26, r: 0.16, fill: 'body' },
+      ...sym({ kind: 'rect', x: 0.16, y: 0.1, w: 0.3, h: 0.055, fill: 'body' }),
+      ...sym({ kind: 'rect', x: 0.16, y: -0.08, w: 0.28, h: 0.055, fill: 'body' }),
+      ...sym({ kind: 'rect', x: 0.14, y: -0.26, w: 0.24, h: 0.055, fill: 'body' }),
+      ...sym({
+        kind: 'poly',
+        points: [0.06, 0.36, 0.2, 0.5, 0.1, 0.34],
+        fill: 'accent',
+      }),
     ],
   },
 

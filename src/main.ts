@@ -8,6 +8,7 @@ import { drawWorld } from './render/drawWorld';
 import {
   PAUSE_BUTTON,
   RESUME_ZONE,
+  drawBossBar,
   drawHud,
   drawPauseButton,
   drawPauseOverlay,
@@ -151,6 +152,7 @@ startLoop((realDt) => {
 
   drawWorld(vp, world, clock);
   drawHud(vp, world);
+  drawBossBar(vp, world);
   if (world.phase === 'playing') drawPauseButton(vp);
   drawHint(vp, hinted && world.phase === 'playing');
   overlay.sample(clock);

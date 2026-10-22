@@ -1,5 +1,7 @@
 import type { ScaledDt } from '../core/clock';
 import {
+  BOSS_SCORE_INTERVAL,
+  BOSS_SUPPRESSION,
   CAP_BASE,
   CAP_MAX,
   CAP_STEP,
@@ -11,11 +13,14 @@ import {
   SPAWN_MARGIN,
   SPAWN_MIN,
   SPAWN_MIN_PLAYER_DIST,
+  SCORE_FIRST_BOSS,
+  FLAGS,
   VIEW_H,
   VIEW_W,
 } from '../config';
 import { DEG } from '../core/math';
 import type { Rng } from '../core/rng';
+import { BOSSES } from '../data/bosses';
 import type { EnemyDef } from '../data/enemies';
 import { ENEMIES } from '../data/enemies';
 import { applyDef } from './entities/Enemy';
@@ -35,9 +40,12 @@ type Side = 0 | 1 | 2 | 3; // top, left, right, bottom
 export class SpawnDirector {
   private timer = 0;
   private readonly weights: number[] = [];
+  /** Avoids meeting the same boss twice in a row. */
+  private lastBossId = '';
 
   reset(): void {
     this.timer = SPAWN_BASE * 0.5;
+    this.lastBossId = '';
   }
 
   interval(score: number): number {
@@ -57,11 +65,29 @@ export class SpawnDirector {
     return band.w;
   }
 
+  /** Score at which boss number `n` (0-based) is due. */
+  nextBossScore(n: number): number {
+    return SCORE_FIRST_BOSS + n * BOSS_SCORE_INTERVAL;
+  }
+
   update(w: World, dt: ScaledDt): void {
     if (dt === 0) return;
     if (w.phase !== 'playing') return;
 
-    this.timer -= dt;
+    const boss = w.bossAlive();
+
+    if (
+      FLAGS.bosses &&
+      boss === null &&
+      w.score >= this.nextBossScore(w.bossesSpawned)
+    ) {
+      this.spawnBoss(w);
+      return;
+    }
+
+    // While a boss is up, the rank and file thin out. A boss fight you cannot
+    // see through because the screen is full of penguins is not a boss fight.
+    this.timer -= boss === null ? dt : dt * BOSS_SUPPRESSION;
     if (this.timer > 0) return;
     this.timer += this.interval(w.score);
 
@@ -85,6 +111,43 @@ export class SpawnDirector {
     if (hi <= 1) return 1;
     const bonus = Math.min(3, Math.floor(score / 650));
     return lo + rng.int(hi - lo + 1) + bonus;
+  }
+
+  /**
+   * Bosses enter from well above the view, so they are visible on approach
+   * rather than materialising on top of the player. Health scales with how
+   * many you have already beaten: a fixed pool would melt instantly once the
+   * player's unbounded weapon stacking gets going, and bosses would stop
+   * being events.
+   */
+  private spawnBoss(w: World): void {
+    const pool = BOSSES.filter((b) => b.id !== this.lastBossId);
+    const def = pool[w.rng.int(pool.length)] ?? BOSSES[0];
+
+    const e = w.enemies.spawn();
+    if (e === null) return;
+
+    applyDef(e, def);
+    // The first boss arrives at score 500, when the player has barely a weapon
+    // or two, and unlike the original's bosses this one blocks the escape
+    // route - so it is deliberately the softest of the series. Measured, a
+    // full-strength first boss was a 19-27 second fight with that loadout.
+    const scale = 0.7 + w.bossesSpawned * 0.5;
+    e.hp = Math.round(def.hp * scale);
+    e.maxHp = e.hp;
+
+    e.x = VIEW_W / 2 + (w.rng.next() - 0.5) * 120;
+    e.y = w.camera.y + VIEW_H / 2 + 180;
+    e.heading = -Math.PI / 2;
+    e.vx = 0;
+    e.vy = -def.speed;
+    e.angle = e.heading - Math.PI / 2;
+    if (def.weapon !== undefined) {
+      e.fireCooldown = def.weapon.cadence;
+    }
+
+    this.lastBossId = def.id;
+    w.bossesSpawned++;
   }
 
   private roll(score: number, rng: Rng): EnemyDef | null {
