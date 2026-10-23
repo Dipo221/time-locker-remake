@@ -1,7 +1,9 @@
 import type { ScaledDt } from '../../core/clock';
 import { VIEW_H, VIEW_W } from '../../config';
 import type { Pool } from '../../core/pool';
+import { runBehaviourUpdates } from '../behaviours';
 import type { Projectile } from '../entities/Projectile';
+import type { World } from '../World';
 
 /** How far outside the view a projectile may travel before being culled. */
 const CULL_MARGIN = 120;
@@ -21,6 +23,7 @@ export function updateProjectiles(
   pool: Pool<Projectile>,
   cameraY: number,
   dt: ScaledDt,
+  w: World,
 ): void {
   if (dt === 0) return; // frozen: not even a lifetime tick
 
@@ -35,6 +38,10 @@ export function updateProjectiles(
       p.alive = false;
       continue;
     }
+
+    // Behaviours may steer (change vx/vy); integration happens here and only
+    // here, so two behaviours can never fight over the position.
+    if (p.behaviours !== null) runBehaviourUpdates(p, dt, w);
 
     p.x += p.vx * dt;
     p.y += p.vy * dt;

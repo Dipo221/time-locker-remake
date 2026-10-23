@@ -1,8 +1,38 @@
 import type { ShapeId } from '../../data/shapes';
+import type { BehaviourSpec } from '../behaviours';
 
-export type WeaponId = 'TWIN_SHOT' | 'WIDE_SHOT' | 'SIDE_SHOT';
+/** Weapons that fire projectiles. */
+export type ProjectileWeaponId =
+  | 'TWIN_SHOT'
+  | 'WIDE_SHOT'
+  | 'SIDE_SHOT'
+  | 'HOMING_SHOT'
+  | 'ROCKET'
+  | 'BEAM'
+  | 'ICE_CANON'
+  | 'MISSILE'
+  | 'LINE';
 
-export type WeaponTag = 'spread' | 'forward' | 'lateral';
+/**
+ * Weapons that are persistent companions rather than shots. They orbit the
+ * player, survive contact, render on their own layer and have their own
+ * lifecycle - conflating them with projectiles would produce a pool where
+ * half the entries never die.
+ */
+export type DroneWeaponId = 'MINE_BOT' | 'GUARD_BIT' | 'SUPPORTER';
+
+export type WeaponId = ProjectileWeaponId | DroneWeaponId;
+
+export type WeaponTag =
+  | 'spread'
+  | 'forward'
+  | 'lateral'
+  | 'homing'
+  | 'rocket'
+  | 'ice'
+  | 'beam'
+  | 'drone'
+  | 'barrier';
 
 export interface ProjectileSpec {
   readonly shape: ShapeId;
@@ -10,8 +40,10 @@ export interface ProjectileSpec {
   readonly speed: number;
   readonly damage: number;
   readonly lifetime: number;
-  /** Pierce budget. 1 = dies on first hit. */
+  /** Pierce budget. 1 = dies on first hit; Infinity for a beam. */
   readonly maxHits: number;
+  /** Optional steering/effect behaviours, applied in order. */
+  readonly behaviours?: readonly BehaviourSpec[];
 }
 
 /**
@@ -43,7 +75,7 @@ export type StackRule =
   | { kind: 'scaleDamage'; perStack: number };
 
 export interface WeaponDef {
-  readonly id: WeaponId;
+  readonly id: ProjectileWeaponId;
   readonly name: string;
   readonly emitters: readonly EmitterSpec[];
   readonly stack: StackRule;
@@ -98,6 +130,7 @@ export interface RuntimeEmitter {
   lifetime: number;
   maxHits: number;
   shape: ShapeId;
+  behaviours: readonly BehaviourSpec[] | null;
 }
 
 export interface CompiledLoadout {

@@ -206,24 +206,60 @@ export function drawPauseOverlay(vp: Viewport, w: World): void {
  * the result screen, which meant you could not tell mid-run what you were
  * holding - and with unbounded stacking that is exactly what you want to know.
  */
+/**
+ * Short label for a chip. Derived from the id rather than kept in a lookup
+ * table, so adding a weapon cannot leave the HUD silently out of sync.
+ */
+function chipLabel(id: string): string {
+  const head = id.split('_')[0];
+  return head.length > 7 ? head.slice(0, 7) : head;
+}
+
 function drawWeaponChips(ctx: CanvasRenderingContext2D, w: World): void {
   if (w.stacks.size === 0) return;
 
-  let y = VIEW_H - 40;
+  // Wrapped rows rather than one chip per line. With all twelve weapons held,
+  // a vertical list covered half the play field - including the part where
+  // the darkness comes up, which is the last thing you want hidden.
+  const padX = 7;
+  const chipH = 21;
+  const gap = 5;
+  const left = 18;
+  const right = VIEW_W - 18;
+
   ctx.textAlign = 'left';
-  ctx.font = '600 17px ui-monospace, Menlo, Consolas, monospace';
+  ctx.textBaseline = 'middle';
+  ctx.font = '600 14px ui-monospace, Menlo, Consolas, monospace';
 
+  type Chip = { text: string; w: number };
+  const rows: Chip[][] = [[]];
+  let rowW = 0;
   for (const [id, n] of w.stacks) {
-    const label = `${id.replace('_', ' ')}  x${n}`;
-    const wPx = ctx.measureText(label).width + 20;
+    const text = `${chipLabel(id)} ${n}`;
+    const cw = ctx.measureText(text).width + padX * 2;
+    if (rowW + cw > right - left && rows[rows.length - 1].length > 0) {
+      rows.push([]);
+      rowW = 0;
+    }
+    rows[rows.length - 1].push({ text, w: cw });
+    rowW += cw + gap;
+  }
 
-    // Opaque, not translucent: these sit at the bottom of the screen, which is
-    // exactly where the darkness rises, and blue-on-black is unreadable.
-    ctx.fillStyle = COLOR.bg;
-    ctx.fillRect(20, y - 6, wPx, 26);
-    ctx.fillStyle = COLOR.playerShot;
-    ctx.fillText(label, 30, y);
-
-    y -= 32;
+  let y = VIEW_H - 16 - rows.length * (chipH + gap);
+  for (const row of rows) {
+    let x = left;
+    for (const chip of row) {
+      // Opaque, not translucent: these sit low on the screen, which is exactly
+      // where the darkness rises, and blue-on-black is unreadable.
+      ctx.fillStyle = COLOR.bg;
+      ctx.fillRect(x, y, chip.w, chipH);
+      ctx.strokeStyle = 'rgba(43, 108, 246, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, chip.w, chipH);
+      ctx.fillStyle = COLOR.playerShot;
+      ctx.fillText(chip.text, x + padX, y + chipH / 2 + 1);
+      x += chip.w + gap;
+    }
+    y += chipH + gap;
   }
 }

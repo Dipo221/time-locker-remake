@@ -1,5 +1,5 @@
 import { LOADOUT_MAX_BARRELS, LOADOUT_MAX_EMITTERS } from '../../config';
-import { WEAPONS } from '../../data/weapons';
+import { getProjectileWeapon } from '../../data/weapons';
 import { DEG } from '../../core/math';
 import type {
   CharacterDef,
@@ -55,7 +55,9 @@ export function compileLoadout(
 
   for (const [id, n] of stacks) {
     if (n <= 0) continue;
-    const def = WEAPONS[id];
+    // Drones are also held as stacks but are not fired, so they are simply
+    // absent here and handled by the drone controller instead.
+    const def = getProjectileWeapon(id);
     if (def === undefined) continue;
 
     const patch = modifierFor(char, def, n);
@@ -172,5 +174,6 @@ function materialise(
     lifetime: p.lifetime,
     maxHits: p.maxHits,
     shape: p.shape,
+    behaviours: p.behaviours ?? null,
   };
 }

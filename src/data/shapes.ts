@@ -43,8 +43,12 @@ export type ShapeId =
   | 'gorilla'
   | 'dino'
   | 'insect'
+  | 'mine'
+  | 'bit'
+  | 'supporter'
   | 'bulletRound'
-  | 'bulletLong';
+  | 'bulletLong'
+  | 'beam';
 
 /** Convenience: a part and its mirror image. */
 function sym(p: ShapePart): ShapePart[] {
@@ -210,6 +214,40 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
    */
   bulletRound: {
     parts: [{ kind: 'circle', x: 0, y: 0, r: 0.5, fill: 'body' }],
+  },
+
+  /** MINE BOT: a spiked puck. */
+  mine: {
+    parts: [
+      { kind: 'circle', x: 0, y: 0, r: 0.32, fill: 'body' },
+      ...sym({ kind: 'rect', x: 0.28, y: -0.06, w: 0.2, h: 0.12, fill: 'body' }),
+      { kind: 'rect', x: -0.06, y: 0.28, w: 0.12, h: 0.2, fill: 'body' },
+      { kind: 'rect', x: -0.06, y: -0.48, w: 0.12, h: 0.2, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0, r: 0.14, fill: 'accent' },
+    ],
+  },
+
+  /** GUARD BIT: a hard little square. */
+  bit: {
+    parts: [
+      { kind: 'rect', x: -0.42, y: -0.42, w: 0.84, h: 0.84, fill: 'body' },
+      { kind: 'rect', x: -0.18, y: -0.18, w: 0.36, h: 0.36, fill: 'accent' },
+    ],
+  },
+
+  /** SUPPORTER: an arrowhead, because it eventually flies off as one. */
+  supporter: {
+    parts: [
+      { kind: 'poly', points: [0, 0.5, 0.34, -0.3, 0, -0.1, -0.34, -0.3], fill: 'body' },
+    ],
+  },
+
+  /** A piercing lance: long and thin, so its travel line is unmistakable. */
+  beam: {
+    parts: [
+      { kind: 'rect', x: -0.11, y: -1.5, w: 0.22, h: 3.0, fill: 'body' },
+      { kind: 'rect', x: -0.05, y: -1.5, w: 0.1, h: 3.0, fill: 'accent' },
+    ],
   },
 
   /**

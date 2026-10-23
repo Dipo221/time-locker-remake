@@ -1,5 +1,9 @@
 import type { Poolable } from '../../core/pool';
 import type { ShapeId } from '../../data/shapes';
+import type { BehaviourSpec } from '../behaviours';
+
+/** Scratch numbers per behaviour slot. Fixed, so the pool never allocates. */
+export const BEHAVIOUR_SLOTS = 4;
 
 
 /** 0 = fired by the player, 1 = fired by an enemy. */
@@ -31,6 +35,16 @@ export interface Projectile extends Poolable {
    */
   ownerRef: Poolable | null;
   ownerGen: number;
+  /**
+   * Immutable spec list, shared with the emitter that fired this. Null for a
+   * plain bullet, which is the common case.
+   */
+  behaviours: readonly BehaviourSpec[] | null;
+  /** Two scratch numbers per behaviour slot. Allocated once, never resized. */
+  bs: Float64Array;
+  /** Homing target, generational so a recycled slot is not mistaken for it. */
+  targetRef: Poolable | null;
+  targetGen: number;
 }
 
 export function createProjectile(): Projectile {
@@ -54,6 +68,10 @@ export function createProjectile(): Projectile {
     hits: 0,
     ownerRef: null,
     ownerGen: -1,
+    behaviours: null,
+    bs: new Float64Array(BEHAVIOUR_SLOTS * 2),
+    targetRef: null,
+    targetGen: -1,
   };
 }
 
@@ -73,4 +91,8 @@ export function resetProjectile(p: Projectile): void {
   p.hits = 0;
   p.ownerRef = null;
   p.ownerGen = -1;
+  p.behaviours = null;
+  p.bs.fill(0);
+  p.targetRef = null;
+  p.targetGen = -1;
 }

@@ -59,6 +59,10 @@ export function emit(
       // lands and we must not then exempt whatever reused the slot.
       p.ownerRef = owner;
       p.ownerGen = owner === null ? -1 : owner.gen;
+      p.behaviours = e.behaviours;
+      p.bs.fill(0);
+      p.targetRef = null;
+      p.targetGen = -1;
     }
   }
 }

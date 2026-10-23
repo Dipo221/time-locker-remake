@@ -1,7 +1,8 @@
-import { COIN_VALUE, DEATH_PARTICLES } from '../../config';
 import { dist2 } from '../../core/math';
+import { runBehaviourHits } from '../behaviours';
+import type { Projectile } from '../entities/Projectile';
 import type { World } from '../World';
-import type { Enemy } from '../entities/Enemy';
+import { damageEnemy, killPlayer } from './damage';
 import { burst } from './particleSystem';
 
 /**
@@ -19,10 +20,10 @@ import { burst } from './particleSystem';
  */
 export function resolveCollisions(w: World): void {
   const p = w.player;
+  const enemies = w.enemies;
 
   // ---- player shots vs enemies --------------------------------------------
   const shots = w.playerShots;
-  const enemies = w.enemies;
   for (let i = 0; i < shots.count; i++) {
     const s = shots.active[i];
     if (!s.alive) continue;
@@ -34,13 +35,17 @@ export function resolveCollisions(w: World): void {
       const r = s.radius + e.hitboxRadius;
       if (dist2(s.x, s.y, e.x, e.y) > r * r) continue;
 
-      e.hp -= s.damage;
+      // Damage first, then behaviours add their effects (freeze, blast) and
+      // may veto the shot's survival. ICE CANON does zero damage, so this is
+      // a no-op for it and the freeze below does all the work.
+      damageEnemy(w, e, s.damage);
       s.hits++;
-
-      // A small hit spark, so feedback is immediate even on a survivor.
       burst(w.particles, w.rng, s.x, s.y, 3, 120, e.colorRole);
 
-      if (e.hp <= 0) killEnemy(w, e);
+      if (runBehaviourHits(s, e, w) === 'destroy') {
+        s.alive = false;
+        break;
+      }
       if (s.hits >= s.maxHits) {
         s.alive = false;
         break;
@@ -68,9 +73,8 @@ export function resolveCollisions(w: World): void {
       const r = s.radius + e.hitboxRadius;
       if (dist2(s.x, s.y, e.x, e.y) > r * r) continue;
 
-      e.hp -= s.damage;
+      damageEnemy(w, e, s.damage);
       burst(w.particles, w.rng, s.x, s.y, 3, 120, e.colorRole);
-      if (e.hp <= 0) killEnemy(w, e);
       s.alive = false;
       break;
     }
@@ -82,7 +86,7 @@ export function resolveCollisions(w: World): void {
   // ---- enemy shots vs player ----------------------------------------------
   if (!invuln) {
     for (let i = 0; i < eshots.count; i++) {
-      const s = eshots.active[i];
+      const s: Projectile = eshots.active[i];
       if (!s.alive) continue;
       const r = s.radius + p.hitboxRadius;
       if (dist2(s.x, s.y, p.x, p.y) <= r * r) {
@@ -123,63 +127,4 @@ export function resolveCollisions(w: World): void {
       w.addWeapon(k.weapon);
     }
   }
-}
-
-export function killEnemy(w: World, e: Enemy): void {
-  e.alive = false;
-  w.score += e.scoreValue;
-  // After the score award, so the gap to the next boss is measured from where
-  // the player actually stands once the fight is over.
-  if (e.isBoss) w.onBossDefeated();
-
-  burst(
-    w.particles,
-    w.rng,
-    e.x,
-    e.y,
-    Math.min(26, 8 + Math.round(e.drawSize * 0.35)),
-    200,
-    e.colorRole,
-  );
-
-  if (e.drop === 'coin') {
-    const k = w.pickups.spawn();
-    if (k !== null) {
-      k.kind = 'coin';
-      k.x = e.x;
-      k.y = e.y;
-      k.vx = 0;
-      k.vy = -20;
-      k.weapon = null;
-      k.value = COIN_VALUE;
-      k.life = 9;
-      k.phase = 0;
-    }
-  } else if (e.drop === 'weapon') {
-    const k = w.pickups.spawn();
-    if (k !== null) {
-      k.kind = 'weapon';
-      k.x = e.x;
-      k.y = e.y;
-      k.vx = 0;
-      k.vy = -20;
-      k.weapon = w.rollWeapon();
-      k.value = 0;
-      k.life = 11;
-      k.phase = 0;
-    }
-  }
-}
-
-function killPlayer(w: World): void {
-  burst(
-    w.particles,
-    w.rng,
-    w.player.x,
-    w.player.y,
-    DEATH_PARTICLES,
-    320,
-    'player',
-  );
-  w.kill('contact');
 }

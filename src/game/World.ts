@@ -10,6 +10,7 @@ import {
   POOL_ENEMY,
   POOL_ESHOT,
   POOL_PARTICLE,
+  POOL_DRONE,
   POOL_PICKUP,
   POOL_PSHOT,
   VIEW_W,
@@ -17,10 +18,13 @@ import {
 import { Pool } from '../core/pool';
 import { Rng } from '../core/rng';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
-import { WEAPONS, WEAPON_IDS } from '../data/weapons';
+import { DRONES, DRONE_IDS } from '../data/drones';
+import { PROJECTILE_WEAPON_IDS, WEAPONS } from '../data/weapons';
 import { Camera } from './Camera';
 import { Darkness } from './Darkness';
 import { SpawnDirector } from './SpawnDirector';
+import type { Drone } from './entities/Drone';
+import { createDrone, resetDrone } from './entities/Drone';
 import type { Enemy } from './entities/Enemy';
 import { createEnemy, resetEnemy } from './entities/Enemy';
 import type { Particle } from './entities/Particle';
@@ -34,6 +38,7 @@ import { createProjectile, resetProjectile } from './entities/Projectile';
 import { resolveCollisions } from './systems/collisionSystem';
 import { updateEnemies } from './systems/enemySystem';
 import { updateEnemyGuns } from './systems/enemyWeaponSystem';
+import { DroneController } from './systems/droneSystem';
 import { updateParticles } from './systems/particleSystem';
 import { updatePickups } from './systems/pickupSystem';
 import { tickInvincibility, updatePlayerBody } from './systems/playerSystem';
@@ -60,10 +65,12 @@ export class World {
   readonly enemies: Pool<Enemy>;
   readonly particles: Pool<Particle>;
   readonly pickups: Pool<Pickup>;
+  readonly drones: Pool<Drone>;
 
   readonly camera = new Camera();
   readonly darkness = new Darkness();
   readonly spawner = new SpawnDirector();
+  readonly droneCtl = new DroneController();
   readonly rng = new Rng();
 
   character: CharacterDef = CHARACTERS[DEFAULT_CHARACTER];
@@ -88,9 +95,15 @@ export class World {
   /** REAL seconds of slow-motion hold after dying. */
   deathHold = 0;
 
-  private readonly weaponWeights: number[] = WEAPON_IDS.map(
-    (id) => WEAPONS[id].pickupWeight,
-  );
+  /** Every droppable weapon, projectile and drone alike, with its rarity. */
+  private readonly dropIds: WeaponId[] = [
+    ...PROJECTILE_WEAPON_IDS,
+    ...DRONE_IDS,
+  ];
+  private readonly dropWeights: number[] = [
+    ...PROJECTILE_WEAPON_IDS.map((id) => WEAPONS[id].pickupWeight),
+    ...DRONE_IDS.map((id) => DRONES[id].pickupWeight),
+  ];
 
   constructor(characterId: string = DEFAULT_CHARACTER) {
     this.playerShots = new Pool(POOL_PSHOT, createProjectile, resetProjectile);
@@ -98,6 +111,7 @@ export class World {
     this.enemies = new Pool(POOL_ENEMY, createEnemy, resetEnemy);
     this.particles = new Pool(POOL_PARTICLE, createParticle, resetParticle);
     this.pickups = new Pool(POOL_PICKUP, createPickup, resetPickup);
+    this.drones = new Pool(POOL_DRONE, createDrone, resetDrone);
 
     this.character = CHARACTERS[characterId] ?? CHARACTERS[DEFAULT_CHARACTER];
     this.loadout = compileLoadout(this.character, this.stacks);
@@ -134,11 +148,14 @@ export class World {
     this.enemies.clear();
     this.particles.clear();
     this.pickups.clear();
+    this.drones.clear();
+    this.droneCtl.reset();
     this.playerShots.resetStats();
     this.enemyShots.resetStats();
     this.enemies.resetStats();
     this.particles.resetStats();
     this.pickups.resetStats();
+    this.drones.resetStats();
 
     this.camera.reset(p.y);
     this.darkness.reset(p.y);
@@ -168,8 +185,8 @@ export class World {
   }
 
   rollWeapon(): WeaponId {
-    const i = this.rng.weighted(this.weaponWeights);
-    return WEAPON_IDS[i < 0 ? 0 : i];
+    const i = this.rng.weighted(this.dropWeights);
+    return this.dropIds[i < 0 ? 0 : i];
   }
 
   /** Score the player must reach before the next boss, from here. */
@@ -233,8 +250,9 @@ export class World {
     updateEnemies(this.enemies, this.player, this.darkness.y, this.camera.y, S);
     updateEnemyGuns(this, S);
     updatePlayerGuns(this, S);
-    updateProjectiles(this.playerShots, this.camera.y, S);
-    updateProjectiles(this.enemyShots, this.camera.y, S);
+    updateProjectiles(this.playerShots, this.camera.y, S, this);
+    updateProjectiles(this.enemyShots, this.camera.y, S, this);
+    this.droneCtl.update(this, S);
     updatePickups(this.pickups, this.player, this.darkness.y, S);
     updateParticles(this.particles, S);
 
@@ -250,6 +268,7 @@ export class World {
     this.enemies.compact();
     this.particles.compact();
     this.pickups.compact();
+    this.drones.compact();
   }
 
   private checkDarknessKill(): void {

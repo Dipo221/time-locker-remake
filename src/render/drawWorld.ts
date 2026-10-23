@@ -13,6 +13,7 @@ import type { World } from '../game/World';
 import type { Enemy } from '../game/entities/Enemy';
 import type { Particle } from '../game/entities/Particle';
 import { PARTICLE_COLORS } from '../game/entities/Particle';
+import type { Drone } from '../game/entities/Drone';
 import type { Pickup } from '../game/entities/Pickup';
 import type { Projectile } from '../game/entities/Projectile';
 import { drawDarkness } from './drawDarkness';
@@ -140,6 +141,27 @@ function drawPickups(
       isWeapon ? 26 : 22,
       isWeapon ? Math.sin(k.phase * 2) * 0.25 : 0,
       body,
+      COLOR.bg,
+    );
+  }
+}
+
+/**
+ * Companions. Drawn above enemies but below bullets: they are the player's,
+ * so they must never be mistaken for something incoming, and they use the
+ * player's own cool accent rather than the reserved enemy-fire hue.
+ */
+function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
+  for (let i = 0; i < pool.count; i++) {
+    const d = pool.active[i];
+    drawShape(
+      ctx,
+      d.shape,
+      d.x,
+      d.y,
+      d.drawSize,
+      d.launched ? Math.atan2(d.vy, d.vx) - Math.PI / 2 : d.angle,
+      COLOR.playerShot,
       COLOR.bg,
     );
   }
@@ -273,6 +295,7 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
     }
   }
 
+  drawDrones(ctx, w.drones);
   drawPlayerShots(ctx, w.playerShots);
   drawEnemyShots(ctx, w.enemyShots, clock.realElapsed);
 

@@ -6,7 +6,7 @@ import { BOSSES } from '../data/bosses';
 import type { Enemy } from './entities/Enemy';
 import { applyDef } from './entities/Enemy';
 import { World } from './World';
-import { killEnemy } from './systems/collisionSystem';
+import { killEnemy } from './systems/damage';
 
 const DT = 1 / 60;
 
