@@ -287,7 +287,19 @@ export const BOSS_CATCHUP_RANGE = 700;
 export const BOSS_CATCHUP_MAX = 10;
 export const BOSS_SUPPRESSION = 0.5;
 export const SCORE_HARD_MODE = 10000;
-export const COIN_VALUE = 1;
+/**
+ * Coins per green carrier. Measured: at 1 a typical early run paid 6 coins
+ * against 15 free, so how well you played was nearly irrelevant to income.
+ */
+export const COIN_VALUE = 3;
+/**
+ * Coins awarded per this much score at the end of a run.
+ *
+ * The main lever that makes PLAYING WELL pay. Without it, income came almost
+ * entirely from pickups and a flat per-run handout, so a 1,500-point run and
+ * a 12,000-point run were worth nearly the same.
+ */
+export const COIN_PER_SCORE = 150;
 
 // ------------------------------------------------------------- META / SHOP
 /**
@@ -302,7 +314,7 @@ export const COIN_VALUE = 1;
  */
 export const POD_PULL_COST = 100;
 export const POD_PULL_USES = 3;
-export const POD_PERMANENT_COST = 1200;
+export const POD_PERMANENT_COST = 800;
 /** Cumulative score thresholds that open PODs 2, 3, 4 ... */
 export const POD_UNLOCK_SCORES: readonly number[] = [3000, 12000, 30000];
 
@@ -313,8 +325,12 @@ export const POD_UNLOCK_SCORES: readonly number[] = [3000, 12000, 30000];
  */
 export const SHOP_SLOTS = 3;
 export const SHOP_WEAPON_COST = 70;
-/** A free handful before each run, as the original's coin box gives. */
-export const FREE_COINS_PER_RUN = 15;
+/**
+ * A free handful before each run, as the original's coin box gives. Small on
+ * purpose: it is a consolation after a bad run, not an income stream. At 15 it
+ * was most of a beginner's earnings, which made play feel unrewarded.
+ */
+export const FREE_COINS_PER_RUN = 8;
 
 // -------------------------------------------------------------- DEATH
 export const DEATH_SLOWMO = 0.1;

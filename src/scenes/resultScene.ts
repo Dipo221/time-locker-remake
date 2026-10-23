@@ -18,16 +18,19 @@ export class ResultScene implements Scene {
   readonly id = 'result' as const;
 
   private score = 0;
-  private coins = 0;
+  private picked = 0;
+  private bonus = 0;
+  private total = 0;
   private best = false;
 
   enter(ctx: SceneCtx): void {
     const { world, meta } = ctx;
     this.score = world.score;
-    this.coins = world.coins;
+    this.picked = world.coins;
+    this.bonus = meta.scoreBonus(world.score);
     this.best = world.score > meta.highScore;
 
-    meta.bankRun(world.score, world.coins);
+    this.total = meta.bankRun(world.score, world.coins);
     saveMeta(meta);
 
     ctx.input.setUiRects([AGAIN, LOBBY]);
@@ -84,8 +87,18 @@ export class ResultScene implements Scene {
       mono(c, `best ${meta.highScore}`, VIEW_W / 2, 378, 17, COLOR.hudDim, 'center');
     }
 
-    mono(c, `+${this.coins} COINS`, VIEW_W / 2, 440, 24, COLOR.playerShot, 'center');
-    mono(c, `bank ${meta.coins}`, VIEW_W / 2, 472, 16, COLOR.hudDim, 'center');
+    mono(c, `+${this.total} COINS`, VIEW_W / 2, 440, 24, COLOR.playerShot, 'center');
+    // Broken out, so it is obvious that scoring higher is what pays.
+    mono(
+      c,
+      `${this.picked} picked up  +  ${this.bonus} for score`,
+      VIEW_W / 2,
+      470,
+      14,
+      COLOR.hudDim,
+      'center',
+    );
+    mono(c, `bank ${meta.coins}`, VIEW_W / 2, 496, 16, COLOR.hudDim, 'center');
 
     drawButton(c, AGAIN, { label: 'RUN AGAIN', primary: true, fontSize: 25 });
     drawButton(c, LOBBY, { label: 'LOBBY', fontSize: 20 });

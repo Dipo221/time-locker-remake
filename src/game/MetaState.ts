@@ -1,4 +1,5 @@
 import {
+  COIN_PER_SCORE,
   POD_PERMANENT_COST,
   POD_PULL_COST,
   POD_PULL_USES,
@@ -145,10 +146,19 @@ export class MetaState {
   }
 
   // ------------------------------------------------------- end of a run
-  bankRun(score: number, coins: number): void {
-    this.coins += coins;
+  /** The end-of-run reward for the score itself, on top of what was picked up. */
+  scoreBonus(score: number): number {
+    return Math.floor(score / COIN_PER_SCORE);
+  }
+
+  /** Banks a finished run and returns the total coins awarded. */
+  bankRun(score: number, coins: number): number {
+    const bonus = this.scoreBonus(score);
+    const total = coins + bonus;
+    this.coins += total;
     this.totalScore += score;
     if (score > this.highScore) this.highScore = score;
+    return total;
   }
 
   // ------------------------------------------------------------ persistence
