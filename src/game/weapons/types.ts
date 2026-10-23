@@ -114,6 +114,15 @@ export interface CharacterDef {
   readonly innate: readonly EmitterSpec[];
   /** Transforms applied to weapons the character PICKS UP. */
   readonly modifiers: readonly WeaponModifier[];
+  /** Stacks granted at the start of every run (MINE LOCKER's two mines). */
+  readonly startWeapons?: readonly WeaponId[];
+  /**
+   * Which vending machine dispenses this. Undefined means it is not in the
+   * gacha at all - either free from the start, or bought outright.
+   */
+  readonly pod?: number;
+  /** Shown in the lobby as the character's one-line identity. */
+  readonly blurb?: string;
 }
 
 /** A fully-resolved emitter with mutable firing state. */

@@ -289,6 +289,33 @@ export const BOSS_SUPPRESSION = 0.5;
 export const SCORE_HARD_MODE = 10000;
 export const COIN_VALUE = 1;
 
+// ------------------------------------------------------------- META / SHOP
+/**
+ * The vending machine. 100 coins per pull, as in the original.
+ *
+ * POD_PULL_USES is the original's rule - a pulled character lasts exactly
+ * three runs - and POD_PERMANENT_COST is the fix for it. Losing a character
+ * you just unlocked is the single most complained-about thing in the reviews
+ * ("you can't permanently unlock characters... even if it costs 5000 coins"),
+ * so the pull stays as the cheap way in and buying one outright is the answer
+ * to that complaint.
+ */
+export const POD_PULL_COST = 100;
+export const POD_PULL_USES = 3;
+export const POD_PERMANENT_COST = 1200;
+/** Cumulative score thresholds that open PODs 2, 3, 4 ... */
+export const POD_UNLOCK_SCORES: readonly number[] = [3000, 12000, 30000];
+
+/**
+ * Weapons bought before a run start already in the loadout. The original
+ * allows three purchases of ordinary weapons per play, so the shop offers
+ * three slots and each can be taken once.
+ */
+export const SHOP_SLOTS = 3;
+export const SHOP_WEAPON_COST = 70;
+/** A free handful before each run, as the original's coin box gives. */
+export const FREE_COINS_PER_RUN = 15;
+
 // -------------------------------------------------------------- DEATH
 export const DEATH_SLOWMO = 0.1;
 export const DEATH_HOLD_SEC = 1.1;

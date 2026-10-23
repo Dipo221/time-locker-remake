@@ -1,46 +1,75 @@
 import { ClockSource } from './core/clock';
 import { Input } from './core/input';
 import { startLoop } from './core/loop';
+import { Rng } from './core/rng';
 import { TimeScaleController } from './core/timeScale';
+import { MetaState, loadMeta, saveMeta } from './game/MetaState';
 import { World } from './game/World';
-import { DebugOverlay, drawHint } from './render/debugOverlay';
-import { drawWorld } from './render/drawWorld';
-import {
-  PAUSE_BUTTON,
-  RESUME_ZONE,
-  drawBossBar,
-  drawHud,
-  drawPauseButton,
-  drawPauseOverlay,
-} from './render/hud';
 import { precompileShapes } from './render/shapePaths';
 import { Viewport } from './render/viewport';
+import { GameScene } from './scenes/gameScene';
+import { LobbyScene } from './scenes/lobbyScene';
+import { ResultScene } from './scenes/resultScene';
+import { SceneManager } from './scenes/scene';
+import type { SceneCtx, SceneId } from './scenes/scene';
 
 const canvas = document.getElementById('stage');
 if (!(canvas instanceof HTMLCanvasElement)) {
   throw new Error('#stage canvas not found');
 }
 
-// Dev switches until the lobby exists: ?char=wideRhino, ?char=antBear, ?seed=1
+// Dev switches: ?char=wideRhino, ?seed=1, ?debug=0, ?scene=game, ?wipe=1
 const params = new URLSearchParams(location.search);
 
 const vp = new Viewport(canvas);
 const input = new Input(vp);
 const clock = new ClockSource();
 const tsc = new TimeScaleController();
-const world = new World(params.get('char') ?? undefined);
-const overlay = new DebugOverlay();
+const meta = new MetaState();
+const world = new World();
+const rng = new Rng((Math.random() * 0xffffffff) >>> 0);
 
+if (params.get('wipe') !== '1') loadMeta(meta);
+
+const charParam = params.get('char');
+if (charParam !== null) {
+  // Dev convenience: hand the character over outright so it can be tried.
+  meta.grant(charParam, 99);
+  meta.selected = charParam;
+}
 const seedParam = params.get('seed');
-if (seedParam !== null) world.reset(Number(seedParam) >>> 0);
-if (params.get('debug') === '0') overlay.visible = false;
+if (seedParam !== null) rng.reseed(Number(seedParam) >>> 0);
+
+const lobby = new LobbyScene();
+const game = new GameScene();
+const result = new ResultScene();
+if (params.get('debug') === '0') game.overlay.visible = false;
+
+const ctx: SceneCtx = {
+  vp,
+  input,
+  clock,
+  tsc,
+  meta,
+  world,
+  rng,
+  pending: [],
+  go(id: SceneId) {
+    manager.request(id);
+  },
+};
+
+const manager = new SceneManager(
+  { lobby, game, result },
+  ctx,
+  (params.get('scene') as SceneId | null) ?? 'lobby',
+);
 
 precompileShapes();
 input.attach();
 
-// Dev handle: lets the console (and automated checks) assert the core
-// invariant directly, e.g. that a frozen projectile's y does not drift while
-// darkness.y keeps climbing.
+// Dev handle: lets the console assert the core invariants directly, e.g. that
+// a frozen projectile's y does not drift while darkness.y keeps climbing.
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).TL = {
     world,
@@ -48,8 +77,11 @@ if (import.meta.env.DEV) {
     tsc,
     input,
     vp,
-    isPaused: () => paused,
-    setPaused: (v: boolean) => setPaused(v),
+    meta,
+    manager,
+    scenes: { lobby, game, result },
+    isPaused: () => game.isPaused,
+    setPaused: (v: boolean) => game.setPaused(ctx, v),
   };
 }
 
@@ -60,102 +92,25 @@ if (typeof ResizeObserver !== 'undefined') {
   new ResizeObserver(onResize).observe(canvas);
 }
 
-/** Press count at the moment of death, so retry needs a FRESH tap. */
-let deadAtPress = -1;
-/** Hide the control hint once the player has actually dragged. */
-let hinted = true;
-let paused = false;
-
-function setPaused(v: boolean): void {
-  if (v === paused) return;
-  if (v && world.phase !== 'playing') return; // nothing to pause
-  paused = v;
-  // Drop any time-scale momentum, so resuming never carries leftover speed.
-  tsc.kill();
-}
-
-/**
- * Re-register tap zones every frame, because which zones exist depends on
- * state: a pause button while playing, the whole screen while paused, and
- * none at all when dead (there, tap-to-retry goes through pressCount).
- */
-function syncUiRects(): void {
-  if (paused) input.setUiRects([RESUME_ZONE]);
-  else if (world.phase === 'playing') input.setUiRects([PAUSE_BUTTON]);
-  else input.setUiRects([]);
-}
-syncUiRects();
-
 window.addEventListener('keydown', (e) => {
   if (e.key === '`' || e.key === '~') {
-    overlay.visible = !overlay.visible;
+    game.overlay.visible = !game.overlay.visible;
     e.preventDefault();
   } else if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
-    setPaused(!paused);
+    if (manager.id === 'game') game.togglePause(ctx);
     e.preventDefault();
   }
 });
 
 // Coming back to a tab mid-run should not drop you straight into a bullet.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) setPaused(true);
+  if (!document.hidden) return;
+  if (manager.id === 'game') game.setPaused(ctx, true);
+  saveMeta(meta);
 });
 
+window.addEventListener('pagehide', () => saveMeta(meta));
+
 startLoop((realDt) => {
-  const frame = input.beginFrame(realDt);
-  const tap = input.consumeTap();
-  if (tap === 'pause') setPaused(true);
-  else if (tap === 'resume') setPaused(false);
-
-  // Untrustworthy input (blur, tab hide): stop dead, no momentum tail.
-  if (input.consumeCancel()) tsc.kill();
-
-  if (paused) {
-    // A TRUE pause: the clock is not advanced at all, so the darkness and its
-    // churning edge stop too. The in-game time freeze deliberately does NOT
-    // stop the darkness; if pause behaved the same way it would just be a
-    // slower death. Input was already drained above, so no path length banks
-    // up and dumps into a timeScale spike on resume.
-    tsc.kill();
-    drawWorld(vp, world, clock);
-    drawHud(vp, world);
-    drawPauseOverlay(vp, world);
-    overlay.draw(vp, world, tsc, clock);
-    syncUiRects();
-    return;
-  }
-
-  if (hinted && (frame.pathLength > 40 || world.score > 0)) hinted = false;
-
-  let timeScale = tsc.update(
-    frame.pathLength,
-    frame.holding,
-    frame.sinceLastMove,
-    realDt,
-  );
-
-  // The death hold is the only thing allowed to override player-driven time.
-  const override = world.timeScaleOverride();
-  if (override !== null) timeScale = override;
-
-  clock.advance(realDt, timeScale);
-  world.update(clock, frame);
-
-  if (world.phase === 'dead') {
-    if (deadAtPress < 0) deadAtPress = input.pressCount;
-    else if (input.pressCount > deadAtPress) {
-      world.reset();
-      tsc.kill();
-      deadAtPress = -1;
-    }
-  }
-
-  drawWorld(vp, world, clock);
-  drawHud(vp, world);
-  drawBossBar(vp, world);
-  if (world.phase === 'playing') drawPauseButton(vp);
-  drawHint(vp, hinted && world.phase === 'playing');
-  overlay.sample(clock);
-  overlay.draw(vp, world, tsc, clock);
-  syncUiRects();
+  manager.frame(realDt);
 });
