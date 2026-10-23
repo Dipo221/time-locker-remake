@@ -4,9 +4,22 @@
  */
 
 // ---------------------------------------------------------------- VIEW
-/** Portrait 9:16 design resolution. All gameplay maths is in these units. */
+/** Portrait 9:16 design resolution: the window you see through. */
 export const VIEW_W = 540;
 export const VIEW_H = 960;
+/**
+ * The playfield is WIDER than the view, and the camera pans sideways to
+ * follow you. With the corridor pinned to the screen width there was no
+ * lateral room to dodge into - the walls were simply the screen edges.
+ *
+ * The camera maps the player's position across the world onto its own range,
+ * so reaching either wall always brings that wall fully into view.
+ */
+export const WORLD_W = 760;
+/** Horizontal camera smoothing (real time). */
+export const CAMERA_X_TAU = 0.18;
+/** The camera never lets the player closer than this to a view edge. */
+export const CAMERA_X_PLAYER_MARGIN = 30;
 /** Cap DPR: nothing in a flat-colour game benefits from 3x, and fill rate hurts. */
 export const MAX_DPR = 2;
 /** Keep the player inside the corridor by this margin. */

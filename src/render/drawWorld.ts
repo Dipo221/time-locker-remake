@@ -2,6 +2,7 @@ import type { Clock } from '../core/clock';
 import {
   COLOR,
   ENEMY_BULLET_MIN_RADIUS,
+  WORLD_W,
   ENEMY_RING_PULSE_HZ,
   PLAYER_INVULN_BLINK_HZ,
   VIEW_H,
@@ -78,7 +79,36 @@ function drawBackgroundMarks(
 
   ctx.fillStyle = COLOR.gridMark;
   for (let y = first; y <= top; y += MARK_SPACING) {
-    for (let x = 30; x < VIEW_W; x += 90) ctx.fillRect(x, y, 26, 3);
+    for (let x = 30; x < WORLD_W; x += 90) ctx.fillRect(x, y, 26, 3);
+  }
+}
+
+/**
+ * The side walls of the playfield.
+ *
+ * The world is wider than the view, so without these the player has no way to
+ * tell how much room is left before the edge - they would only discover a
+ * wall by sliding into it. Hatched so they read as solid rather than as
+ * another background mark.
+ */
+function drawWalls(ctx: CanvasRenderingContext2D, cameraY: number): void {
+  const top = cameraY + VIEW_H / 2;
+  const bottom = cameraY - VIEW_H / 2;
+  const w = 10;
+
+  // Drawn just INSIDE the world bounds. Outside them the band sits beyond the
+  // camera's own clamp and is never on screen - which is how the first
+  // version managed to render walls nobody could see.
+  ctx.fillStyle = COLOR.frame;
+  ctx.fillRect(0, bottom, w, top - bottom);
+  ctx.fillRect(WORLD_W - w, bottom, w, top - bottom);
+
+  ctx.fillStyle = COLOR.hudDim;
+  const step = 26;
+  const first = Math.floor(bottom / step) * step;
+  for (let y = first; y <= top; y += step) {
+    ctx.fillRect(0, y, w, 12);
+    ctx.fillRect(WORLD_W - w, y, w, 12);
   }
 }
 
@@ -277,9 +307,10 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // ---- world space: +Y up, camera-relative. TEXT IS MIRRORED HERE. --------
-  vp.applyWorld(w.camera.y);
+  vp.applyWorld(w.camera.x, w.camera.y);
 
   drawBackgroundMarks(ctx, w.camera.y);
+  drawWalls(ctx, w.camera.y);
   drawParticles(ctx, w.particles);
   drawPickups(ctx, w.pickups, clock.realElapsed);
   drawEnemies(ctx, w.enemies);

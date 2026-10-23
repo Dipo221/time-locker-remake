@@ -20,6 +20,7 @@ import {
   FLAGS,
   VIEW_H,
   VIEW_W,
+  WORLD_W,
 } from '../config';
 import { DEG } from '../core/math';
 import type { Rng } from '../core/rng';
@@ -146,7 +147,7 @@ export class SpawnDirector {
     e.hp = Math.round(def.hp * scale);
     e.maxHp = e.hp;
 
-    e.x = VIEW_W / 2 + (w.rng.next() - 0.5) * 120;
+    e.x = w.camera.x + VIEW_W / 2 + (w.rng.next() - 0.5) * 120;
     e.y = w.camera.y + VIEW_H / 2 + 180;
     e.heading = -Math.PI / 2;
     e.vx = 0;
@@ -195,23 +196,29 @@ export class SpawnDirector {
       side = 0;
     }
 
+    // Spawns are placed relative to the VISIBLE window, not the whole world.
+    // Scattering them across the full width would strand many of them in the
+    // off-screen part of the field, where they threaten nobody.
+    const left = w.camera.x;
+    const right = w.camera.x + VIEW_W;
+
     let x = 0;
     let y = 0;
     switch (side) {
       case 0:
-        x = rng.range(20, VIEW_W - 20);
+        x = rng.range(left + 20, right - 20);
         y = top;
         break;
       case 1:
-        x = -SPAWN_MARGIN;
+        x = Math.max(-SPAWN_MARGIN, left - SPAWN_MARGIN);
         y = rng.range(bottom + 140, top - 60);
         break;
       case 2:
-        x = VIEW_W + SPAWN_MARGIN;
+        x = Math.min(WORLD_W + SPAWN_MARGIN, right + SPAWN_MARGIN);
         y = rng.range(bottom + 140, top - 60);
         break;
       case 3:
-        x = rng.range(20, VIEW_W - 20);
+        x = rng.range(left + 20, right - 20);
         y = Math.max(bottom, w.darkness.y + 30);
         break;
     }

@@ -7,6 +7,7 @@ import {
   TURN_HOMING,
   VIEW_H,
   VIEW_W,
+  WORLD_W,
 } from '../../config';
 import { DEG, clamp, turnToward } from '../../core/math';
 
@@ -53,6 +54,7 @@ export function updateEnemies(
   pool: Pool<Enemy>,
   player: Player,
   darknessY: number,
+  cameraX: number,
   cameraY: number,
   dt: ScaledDt,
 ): void {
@@ -120,7 +122,13 @@ export function updateEnemies(
         // Keep the station inside the corridor. Unclamped, the weave can carry
         // a boss past the screen edge, where it is safe from fire while still
         // pressing the player - sheltering off-screen is not a boss mechanic.
-        const stationX = clamp(player.x + weave, BOSS_EDGE_MARGIN, VIEW_W - BOSS_EDGE_MARGIN);
+        // Clamped to the VISIBLE window rather than the world, so a boss
+        // cannot shelter in the off-screen part of the wider field.
+        const stationX = clamp(
+          player.x + weave,
+          cameraX + BOSS_EDGE_MARGIN,
+          cameraX + VIEW_W - BOSS_EDGE_MARGIN,
+        );
 
         const dx = stationX - e.x;
         const dy = player.y + R - e.y;
@@ -220,7 +228,7 @@ export function updateEnemies(
       (e.y > top ||
         e.y < bottom ||
         e.x < -CULL_MARGIN ||
-        e.x > VIEW_W + CULL_MARGIN)
+        e.x > WORLD_W + CULL_MARGIN)
     ) {
       e.alive = false;
     }

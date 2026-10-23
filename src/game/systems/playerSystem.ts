@@ -1,6 +1,6 @@
 import type { RealDt } from '../../core/clock';
 import type { InputFrame } from '../../core/input';
-import { PLAYER_MAX_SPEED, PLAY_MARGIN, VIEW_W } from '../../config';
+import { PLAYER_MAX_SPEED, PLAY_MARGIN, WORLD_W } from '../../config';
 import { clamp, len } from '../../core/math';
 import type { Player } from '../entities/Player';
 
@@ -50,8 +50,9 @@ export function updatePlayerBody(
   p.stepDist = len(dx, dy);
   p.speed = dt > 0 ? p.stepDist / dt : 0;
 
-  // Horizontal corridor. Y is unbounded: forward progress is the game.
-  p.x = clamp(p.x, PLAY_MARGIN, VIEW_W - PLAY_MARGIN);
+  // The corridor is the WORLD, which is wider than the view; the camera pans
+  // to follow. Y is unbounded: forward progress is the game.
+  p.x = clamp(p.x, PLAY_MARGIN, WORLD_W - PLAY_MARGIN);
 }
 
 /**

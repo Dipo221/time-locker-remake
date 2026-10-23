@@ -97,7 +97,9 @@ export function drawBossBar(vp: Viewport, w: World): void {
     const above = boss.y > top;
     const dist = Math.round(above ? boss.y - top : bottom - boss.y);
     // Pin the marker to the edge it is behind, at its horizontal position.
-    const mx = Math.max(60, Math.min(VIEW_W - 60, boss.x));
+    // The HUD is in view space but the boss is in world space, so the camera
+    // pan has to be subtracted.
+    const mx = Math.max(60, Math.min(VIEW_W - 60, boss.x - w.camera.x));
     const my = above ? 150 : VIEW_H - 150;
 
     ctx.textAlign = 'center';

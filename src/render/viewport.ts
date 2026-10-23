@@ -86,16 +86,17 @@ export class Viewport {
    * World space: x maps 0..VIEW_W directly, +y is UP, and `cameraY` is the
    * world Y shown at the vertical centre of the play rect.
    *
-   * A world point (wx, wy) lands at design (wx, VIEW_H/2 - (wy - cameraY)).
+   * A world point (wx, wy) lands at design
+   * (wx - cameraX, VIEW_H/2 - (wy - cameraY)).
    */
-  applyWorld(cameraY: number): void {
+  applyWorld(cameraX: number, cameraY: number): void {
     const s = this.dpr * this.scale;
     this.ctx.setTransform(
       s,
       0,
       0,
       -s,
-      this.dpr * this.offsetX,
+      this.dpr * (this.offsetX - cameraX * this.scale),
       this.dpr * (this.offsetY + (VIEW_H / 2 + cameraY) * this.scale),
     );
   }

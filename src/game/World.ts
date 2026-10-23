@@ -13,7 +13,7 @@ import {
   POOL_DRONE,
   POOL_PICKUP,
   POOL_PSHOT,
-  VIEW_W,
+  WORLD_W,
 } from '../config';
 import { Pool } from '../core/pool';
 import { Rng } from '../core/rng';
@@ -129,7 +129,7 @@ export class World {
     this.rng.reseed(seed);
 
     const p = this.player;
-    p.x = VIEW_W / 2;
+    p.x = WORLD_W / 2;
     p.y = 0;
     p.alive = true;
     p.invulnRealFor = 0;
@@ -157,7 +157,7 @@ export class World {
     this.pickups.resetStats();
     this.drones.resetStats();
 
-    this.camera.reset(p.y);
+    this.camera.reset(p.x, p.y);
     this.darkness.reset(p.y);
     this.spawner.reset();
 
@@ -242,12 +242,20 @@ export class World {
     tickInvincibility(this.player, R);
     this.darkness.update(this.player.y, this.score, R);
     this.camera.follow(this.player.y, this.darkness.y, R);
+    this.camera.followX(this.player.x, R);
 
     // =================================================== SCALED CLOCK
     // Everything else. At timeScale 0 these are all no-ops, which IS the
     // freeze - achieved with no special-casing anywhere.
     this.spawner.update(this, S);
-    updateEnemies(this.enemies, this.player, this.darkness.y, this.camera.y, S);
+    updateEnemies(
+      this.enemies,
+      this.player,
+      this.darkness.y,
+      this.camera.x,
+      this.camera.y,
+      S,
+    );
     updateEnemyGuns(this, S);
     updatePlayerGuns(this, S);
     updateProjectiles(this.playerShots, this.camera.y, S, this);

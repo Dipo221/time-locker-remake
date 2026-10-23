@@ -4,9 +4,14 @@ import {
   CAMERA_DEADZONE,
   CAMERA_FOLLOW_TAU,
   CAMERA_LOOKAHEAD,
+  CAMERA_X_PLAYER_MARGIN,
+  CAMERA_X_TAU,
+  PLAY_MARGIN,
   VIEW_H,
+  VIEW_W,
+  WORLD_W,
 } from '../config';
-import { expSmooth } from '../core/math';
+import { clamp, expSmooth } from '../core/math';
 
 /**
  * Dead-zone follow with lookahead. Real clock, because it follows the player's
@@ -22,9 +27,46 @@ import { expSmooth } from '../core/math';
  */
 export class Camera {
   y = 0;
+  /** World X shown at the LEFT edge of the view. */
+  x = 0;
 
-  reset(playerY: number): void {
+  reset(playerX: number, playerY: number): void {
     this.y = playerY + CAMERA_LOOKAHEAD;
+    this.x = this.targetX(playerX);
+  }
+
+  /**
+   * Map the player's position across the world onto the camera's own range.
+   *
+   * A dead-zone follow would be the usual choice, but it cannot reach the
+   * extremes: it stops a dead-zone short of its target, which would leave the
+   * side walls permanently just off screen - exactly the thing the wider
+   * world exists to show. Linear mapping guarantees that standing against a
+   * wall puts that wall at the edge of the view.
+   */
+  private targetX(playerX: number): number {
+    const span = WORLD_W - VIEW_W;
+    if (span <= 0) return 0;
+    const t = clamp(
+      (playerX - PLAY_MARGIN) / (WORLD_W - PLAY_MARGIN * 2),
+      0,
+      1,
+    );
+    return t * span;
+  }
+
+  followX(playerX: number, dt: RealDt): void {
+    const target = this.targetX(playerX);
+    this.x += (target - this.x) * expSmooth(dt, CAMERA_X_TAU);
+
+    // Hard guarantee that the player is on screen. The smoothing lags, and the
+    // player's body is on the real clock and can cross the field far faster
+    // than the camera eases - without this they slide off the edge during a
+    // fast sweep. Visibility first, then the world bound: at a wall the
+    // margin cannot be honoured, and the world bound is the one that must win.
+    const edge = CAMERA_X_PLAYER_MARGIN;
+    this.x = clamp(this.x, playerX - VIEW_W + edge, playerX - edge);
+    this.x = clamp(this.x, 0, Math.max(0, WORLD_W - VIEW_W));
   }
 
   follow(playerY: number, darknessY: number, dt: RealDt): void {

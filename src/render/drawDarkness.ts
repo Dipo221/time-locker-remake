@@ -1,4 +1,4 @@
-import { COLOR, DARKNESS_FEATHER, VIEW_H, VIEW_W } from '../config';
+import { COLOR, DARKNESS_FEATHER, VIEW_H, WORLD_W } from '../config';
 import type { Darkness } from '../game/Darkness';
 
 /** How finely the churning edge is tessellated, in world units. */
@@ -33,7 +33,7 @@ export function drawDarkness(
     Math.sin(x * 0.067 + t * 3.3) * 2.5;
 
   const left = -OVERSHOOT;
-  const right = VIEW_W + OVERSHOOT;
+  const right = WORLD_W + OVERSHOOT;
   const floor = viewBottom - OVERSHOOT * 4;
 
   // --- soft feather above the solid edge ------------------------------------
@@ -49,7 +49,7 @@ export function drawDarkness(
   ctx.fillStyle = 'rgba(6, 7, 10, 0.55)';
   for (let i = 0; i < 7; i++) {
     const phase = t * 0.7 + i * 2.39996;
-    const x = ((i * 97.3 + Math.sin(phase * 0.31) * 40) % VIEW_W + VIEW_W) % VIEW_W;
+    const x = (((i * 97.3 + Math.sin(phase * 0.31) * 40) % WORLD_W) + WORLD_W) % WORLD_W;
     const h = 18 + (Math.sin(phase) * 0.5 + 0.5) * 62;
     const halfW = 7 + (Math.cos(phase * 0.8) * 0.5 + 0.5) * 9;
     const baseY = edgeAt(x);

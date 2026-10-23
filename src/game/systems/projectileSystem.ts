@@ -1,5 +1,5 @@
 import type { ScaledDt } from '../../core/clock';
-import { VIEW_H, VIEW_W } from '../../config';
+import { VIEW_H, WORLD_W } from '../../config';
 import type { Pool } from '../../core/pool';
 import { runBehaviourUpdates } from '../behaviours';
 import type { Projectile } from '../entities/Projectile';
@@ -50,7 +50,7 @@ export function updateProjectiles(
       p.y > top ||
       p.y < bottom ||
       p.x < -CULL_MARGIN ||
-      p.x > VIEW_W + CULL_MARGIN
+      p.x > WORLD_W + CULL_MARGIN
     ) {
       p.alive = false;
     }
