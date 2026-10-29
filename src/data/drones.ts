@@ -1,5 +1,5 @@
 import type { ShapeId } from './shapes';
-import type { DroneWeaponId } from '../game/weapons/types';
+import type { DroneWeaponId, ShotFamily } from '../game/weapons/types';
 
 /**
  * The three companion weapons. They persist, orbit the player, and are not
@@ -15,6 +15,8 @@ export interface DroneDef {
   readonly name: string;
   readonly kind: DroneKind;
   readonly shape: ShapeId;
+  /** Colour, by the same rule as shots: what it does to an enemy. */
+  readonly family: ShotFamily;
   readonly drawSize: number;
   readonly hitboxRadius: number;
   readonly orbitRadius: number;
@@ -49,6 +51,7 @@ export const DRONES: Record<DroneWeaponId, DroneDef> = {
     name: 'MINE BOT',
     kind: 'mine',
     shape: 'mine',
+    family: 'explosive',
     drawSize: 17,
     hitboxRadius: 9,
     orbitRadius: 62,
@@ -72,6 +75,7 @@ export const DRONES: Record<DroneWeaponId, DroneDef> = {
     name: 'GUARD BIT',
     kind: 'guard',
     shape: 'bit',
+    family: 'pierce',
     drawSize: 15,
     hitboxRadius: 11,
     orbitRadius: 46,
@@ -91,6 +95,7 @@ export const DRONES: Record<DroneWeaponId, DroneDef> = {
     name: 'SUPPORTER',
     kind: 'supporter',
     shape: 'supporter',
+    family: 'basic',
     drawSize: 19,
     hitboxRadius: 8,
     orbitRadius: 78,

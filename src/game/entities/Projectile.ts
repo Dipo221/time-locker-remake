@@ -1,6 +1,7 @@
 import type { Poolable } from '../../core/pool';
 import type { ShapeId } from '../../data/shapes';
 import type { BehaviourSpec } from '../behaviours';
+import type { ShotFamily } from '../weapons/types';
 
 /** Scratch numbers per behaviour slot. Fixed, so the pool never allocates. */
 export const BEHAVIOUR_SLOTS = 4;
@@ -47,6 +48,8 @@ export interface Projectile extends Poolable {
   targetGen: number;
   /** Can reach air units. Copied from the emitter; true exactly when it homes. */
   hitsFlying: boolean;
+  /** Which colour it wears. Copied from the emitter; see shotFamily. */
+  family: ShotFamily;
 }
 
 export function createProjectile(): Projectile {
@@ -75,6 +78,7 @@ export function createProjectile(): Projectile {
     targetRef: null,
     targetGen: -1,
     hitsFlying: false,
+    family: 'basic',
   };
 }
 
@@ -99,4 +103,5 @@ export function resetProjectile(p: Projectile): void {
   p.targetRef = null;
   p.targetGen = -1;
   p.hitsFlying = false;
+  p.family = 'basic';
 }

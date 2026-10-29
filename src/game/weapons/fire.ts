@@ -64,6 +64,7 @@ export function emit(
       p.targetRef = null;
       p.targetGen = -1;
       p.hitsFlying = e.hitsFlying;
+      p.family = e.family;
     }
   }
 }

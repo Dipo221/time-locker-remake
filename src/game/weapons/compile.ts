@@ -1,4 +1,5 @@
 import { LOADOUT_MAX_BARRELS, LOADOUT_MAX_EMITTERS } from '../../config';
+import { getDrone } from '../../data/drones';
 import { getProjectileWeapon } from '../../data/weapons';
 import { DEG } from '../../core/math';
 import type {
@@ -6,7 +7,9 @@ import type {
   CompiledLoadout,
   EmitterPatch,
   EmitterSpec,
+  ProjectileSpec,
   RuntimeEmitter,
+  ShotFamily,
   WeaponDef,
   WeaponId,
 } from './types';
@@ -180,6 +183,7 @@ function materialise(
     // so a new homing weapon reaches helicopters without remembering to.
     hitsFlying:
       p.hitsFlying ?? (p.behaviours ?? []).some((b) => b.kind === 'homing'),
+    family: shotFamily(p),
     track: spec.track ?? 'forward',
     trackRange: spec.trackRange ?? 520,
     sweepRad: (spec.sweepDeg ?? 0) * DEG,
@@ -187,4 +191,29 @@ function materialise(
     // Stagger sweeping emitters too, so two do not mirror each other exactly.
     sweepPhase: spec.phase,
   };
+}
+
+/**
+ * Which colour a shot wears, from what it does. The first match wins, in
+ * order of how much the effect changes play: a freezing shot is ice even if
+ * it pierces, and a MISSILE is explosive even though it also homes - the bang
+ * is what you need to know about. Bouncing shots seek their next target, so
+ * they read as homing; splitting ones burst, so they read as explosive.
+ */
+export function shotFamily(p: ProjectileSpec): ShotFamily {
+  const kinds = (p.behaviours ?? []).map((b) => b.kind);
+  if (kinds.includes('freezing')) return 'ice';
+  if (kinds.includes('explodeOnHit') || kinds.includes('splitOnHit')) {
+    return 'explosive';
+  }
+  if (kinds.includes('homing') || kinds.includes('bounce')) return 'homing';
+  if (p.maxHits > 1) return 'pierce';
+  return 'basic';
+}
+
+/** The colour a held weapon goes by in the HUD: that of what it fires. */
+export function weaponFamily(id: WeaponId): ShotFamily {
+  const def = getProjectileWeapon(id);
+  if (def !== undefined) return shotFamily(def.emitters[0].projectile);
+  return getDrone(id)?.family ?? 'basic';
 }

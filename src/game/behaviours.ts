@@ -224,6 +224,7 @@ const splitOnHit: Behaviour<Extract<BehaviourSpec, { kind: 'splitOnHit' }>> = {
       c.targetRef = null;
       c.targetGen = -1;
       c.hitsFlying = false;
+      c.family = p.family;
     }
     return 'destroy';
   },

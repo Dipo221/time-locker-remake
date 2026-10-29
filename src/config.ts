@@ -3,6 +3,8 @@
  * Units: design pixels ("world units", 540x960 portrait) and seconds.
  */
 
+import type { ShotFamily } from './game/weapons/types';
+
 // ---------------------------------------------------------------- VIEW
 /** Portrait 9:16 design resolution: the window you see through. */
 export const VIEW_W = 540;
@@ -369,7 +371,13 @@ export const COLOR = {
   frame: '#d9d6cf',
   gridMark: '#eceae4',
   ink: '#1e2024',
-  /** Player fire: one cool accent. Nothing else may come near this hue. */
+  /**
+   * You. Magenta, because it is the one hue no enemy uses - the old ink body
+   * was all but identical to the black enemies, so the player was the hardest
+   * thing on screen to find.
+   */
+  player: '#dc4ac1',
+  /** Plain player fire, and the UI accent. See SHOT_COLORS for the rest. */
   playerShot: '#2b6cf6',
   playerShotEdge: '#133b8f',
   /** Enemy fire: one hot warning colour. Nothing else may come near this hue. */
@@ -391,6 +399,31 @@ export const COLOR = {
   hud: '#1e2024',
   hudDim: '#a7a29a',
 } as const;
+
+/**
+ * Player fire, coloured by what the shot DOES, so a glance at the screen says
+ * what your loadout is doing. Chosen by measured perceptual distance (OKLab)
+ * from each other, from the enemies and above all from the reserved enemy-fire
+ * hue - palette.test.ts holds that last line.
+ *
+ * `edge` is a dark shade of the same hue: the rim that keeps the light ones
+ * (amber, ice) visible on the near-white field, and the HUD chip text colour.
+ */
+export const SHOT_COLORS = {
+  basic: { body: COLOR.playerShot, edge: COLOR.playerShotEdge },
+  homing: { body: '#7cb518', edge: '#395800' },
+  explosive: { body: '#f5b014', edge: '#664700' },
+  pierce: { body: '#9a5cff', edge: '#6000b7' },
+  /** The same family as the frozen-enemy tint: the cause matches the effect. */
+  ice: { body: '#3abdee', edge: '#005570' },
+} as const satisfies Record<ShotFamily, { body: string; edge: string }>;
+
+/**
+ * Outline drawn behind the player, in screen pixels. Nothing an enemy owns is
+ * outlined, so the outline itself says "yours" - shots get a thinner one.
+ */
+export const PLAYER_OUTLINE_PX = 2.5;
+export const SHOT_RIM_PX = 1.1;
 /** Enemy shots may never render visually smaller than player shots. */
 export const ENEMY_BULLET_MIN_RADIUS = 6;
 /** Pulses on the REAL clock, so enemy bullets keep breathing while frozen. */

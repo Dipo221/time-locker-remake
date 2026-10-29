@@ -262,6 +262,7 @@ function supporterEmitter(def: DroneDef): RuntimeEmitter {
     shape: 'bulletLong',
     behaviours: null,
     hitsFlying: false,
+    family: 'basic',
     track: 'forward',
     trackRange: 0,
     sweepRad: 0,

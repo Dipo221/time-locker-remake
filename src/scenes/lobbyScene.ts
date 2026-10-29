@@ -3,6 +3,7 @@ import {
   FREE_COINS_PER_RUN,
   POD_PERMANENT_COST,
   POD_PULL_COST,
+  PLAYER_OUTLINE_PX,
   POD_PULL_USES,
   SHOP_SLOTS,
   SHOP_WEAPON_COST,
@@ -208,7 +209,20 @@ export class LobbyScene implements Scene {
     c.save();
     c.translate(VIEW_W / 2, 284);
     c.scale(1, -1); // shapes are authored +Y forward; the UI pass is Y-down
-    drawShape(c, def.shape, 0, 0, 120, 0, COLOR.ink, COLOR.bg);
+    // In your own colour, outlined as in play, so the lobby teaches what to
+    // look for on the field. The outline scales with the silhouette.
+    drawShape(
+      c,
+      def.shape,
+      0,
+      0,
+      120,
+      0,
+      COLOR.player,
+      COLOR.bg,
+      COLOR.ink,
+      (PLAYER_OUTLINE_PX * 120) / def.drawSize,
+    );
     c.restore();
 
     label(c, def.name, VIEW_W / 2, 352, 25, COLOR.hud, 'center');

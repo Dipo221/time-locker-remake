@@ -1,6 +1,8 @@
-import { COLOR, VIEW_H, VIEW_W } from '../config';
+import { COLOR, SHOT_COLORS, VIEW_H, VIEW_W } from '../config';
 import type { UiRect } from '../core/input';
 import type { World } from '../game/World';
+import { weaponFamily } from '../game/weapons/compile';
+import type { ShotFamily } from '../game/weapons/types';
 import type { Viewport } from './viewport';
 
 /**
@@ -233,17 +235,17 @@ function drawWeaponChips(ctx: CanvasRenderingContext2D, w: World): void {
   ctx.textBaseline = 'middle';
   ctx.font = '600 14px ui-monospace, Menlo, Consolas, monospace';
 
-  type Chip = { text: string; w: number };
+  type Chip = { text: string; w: number; family: ShotFamily };
   const rows: Chip[][] = [[]];
   let rowW = 0;
   for (const [id, n] of w.stacks) {
     const text = `${chipLabel(id)} ${n}`;
-    const cw = ctx.measureText(text).width + padX * 2;
+    const cw = ctx.measureText(text).width + padX * 2 + 2;
     if (rowW + cw > right - left && rows[rows.length - 1].length > 0) {
       rows.push([]);
       rowW = 0;
     }
-    rows[rows.length - 1].push({ text, w: cw });
+    rows[rows.length - 1].push({ text, w: cw, family: weaponFamily(id) });
     rowW += cw + gap;
   }
 
@@ -252,14 +254,22 @@ function drawWeaponChips(ctx: CanvasRenderingContext2D, w: World): void {
     let x = left;
     for (const chip of row) {
       // Opaque, not translucent: these sit low on the screen, which is exactly
-      // where the darkness rises, and blue-on-black is unreadable.
+      // where the darkness rises, and colour-on-black is unreadable.
+      //
+      // Each chip wears its shots' colour, so the HUD is the legend for the
+      // field. The text takes the DARK shade: amber or ice text on white
+      // would be close to invisible, so the bright body colour goes on the
+      // bar and the border instead.
+      const c = SHOT_COLORS[chip.family];
       ctx.fillStyle = COLOR.bg;
       ctx.fillRect(x, y, chip.w, chipH);
-      ctx.strokeStyle = 'rgba(43, 108, 246, 0.25)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = c.body;
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(x, y, chip.w, chipH);
-      ctx.fillStyle = COLOR.playerShot;
-      ctx.fillText(chip.text, x + padX, y + chipH / 2 + 1);
+      ctx.fillStyle = c.body;
+      ctx.fillRect(x, y, 4, chipH);
+      ctx.fillStyle = c.edge;
+      ctx.fillText(chip.text, x + padX + 2, y + chipH / 2 + 1);
       x += chip.w + gap;
     }
     y += chipH + gap;

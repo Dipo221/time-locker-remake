@@ -5,6 +5,9 @@ import {
   WORLD_W,
   ENEMY_RING_PULSE_HZ,
   PLAYER_INVULN_BLINK_HZ,
+  PLAYER_OUTLINE_PX,
+  SHOT_COLORS,
+  SHOT_RIM_PX,
   VIEW_H,
   VIEW_W,
 } from '../config';
@@ -23,6 +26,12 @@ import type { Viewport } from './viewport';
 
 const MARK_SPACING = 120;
 
+/**
+ * `outline`, when given, is drawn BEHIND the shape: every layer is stroked at
+ * twice `outlinePx` first and the fills then cover the inner half, so exactly
+ * `outlinePx` screen pixels show outside the silhouette - and none show at
+ * the seams where a shape's own layers overlap.
+ */
 export function drawShape(
   ctx: CanvasRenderingContext2D,
   id: ShapeId,
@@ -32,12 +41,20 @@ export function drawShape(
   angle: number,
   body: string,
   accent: string,
+  outline: string | null = null,
+  outlinePx = 0,
 ): void {
   const shape = getShape(id);
   ctx.save();
   ctx.translate(x, y);
   if (angle !== 0) ctx.rotate(angle);
   ctx.scale(size, size);
+  if (outline !== null) {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = (outlinePx * 2) / size;
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < shape.layers.length; i++) ctx.stroke(shape.layers[i].path);
+  }
   for (let i = 0; i < shape.layers.length; i++) {
     const layer = shape.layers[i];
     ctx.fillStyle =
@@ -178,12 +195,13 @@ function drawPickups(
 
 /**
  * Companions. Drawn above enemies but below bullets: they are the player's,
- * so they must never be mistaken for something incoming, and they use the
- * player's own cool accent rather than the reserved enemy-fire hue.
+ * so they must never be mistaken for something incoming. They wear the colour
+ * of what they do, by the same rule as shots, and the same rim.
  */
 function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
   for (let i = 0; i < pool.count; i++) {
     const d = pool.active[i];
+    const c = SHOT_COLORS[d.def.family];
     drawShape(
       ctx,
       d.shape,
@@ -191,8 +209,10 @@ function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
       d.y,
       d.drawSize,
       d.launched ? Math.atan2(d.vy, d.vx) - Math.PI / 2 : d.angle,
-      COLOR.playerShot,
+      c.body,
       COLOR.bg,
+      c.edge,
+      SHOT_RIM_PX,
     );
   }
 }
@@ -274,13 +294,19 @@ function drawEnemies(ctx: CanvasRenderingContext2D, pool: Pool<Enemy>): void {
   }
 }
 
-/** Player fire: cool hue, elongated along travel, drawn UNDER enemy fire. */
+/**
+ * Player fire: coloured by what it does (SHOT_COLORS), rimmed in a dark shade
+ * of its own hue, drawn UNDER enemy fire. The rim is the inverse of enemy
+ * fire's white ring, so even a round player shot never wears enemy fire's
+ * pattern.
+ */
 function drawPlayerShots(
   ctx: CanvasRenderingContext2D,
   pool: Pool<Projectile>,
 ): void {
   for (let i = 0; i < pool.count; i++) {
     const p = pool.active[i];
+    const c = SHOT_COLORS[p.family];
     drawShape(
       ctx,
       p.shape,
@@ -288,8 +314,10 @@ function drawPlayerShots(
       p.y,
       p.size,
       p.angle,
-      COLOR.playerShot,
-      COLOR.playerShotEdge,
+      c.body,
+      c.edge,
+      c.edge,
+      SHOT_RIM_PX,
     );
   }
 }
@@ -382,7 +410,18 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
       p.invulnRealFor > 0 &&
       Math.sin(clock.realElapsed * PLAYER_INVULN_BLINK_HZ * Math.PI * 2) < 0;
     if (!blink) {
-      drawShape(ctx, p.shape, p.x, p.y, p.drawSize, 0, COLOR.ink, COLOR.bg);
+      drawShape(
+        ctx,
+        p.shape,
+        p.x,
+        p.y,
+        p.drawSize,
+        0,
+        COLOR.player,
+        COLOR.bg,
+        COLOR.ink,
+        PLAYER_OUTLINE_PX,
+      );
     }
   }
 

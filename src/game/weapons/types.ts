@@ -145,6 +145,13 @@ export interface CharacterDef {
   readonly blurb?: string;
 }
 
+/**
+ * What a player shot DOES, which is what its colour says (see SHOT_COLORS).
+ * Derived from the projectile's behaviours, never hand-assigned, so every
+ * character's innate gun gets the right colour without anyone remembering to.
+ */
+export type ShotFamily = 'basic' | 'homing' | 'explosive' | 'pierce' | 'ice';
+
 /** A fully-resolved emitter with mutable firing state. */
 export interface RuntimeEmitter {
   anglesRad: number[];
@@ -162,6 +169,7 @@ export interface RuntimeEmitter {
   behaviours: readonly BehaviourSpec[] | null;
   /** Can reach air units. True exactly when it homes; see Enemy.flying. */
   hitsFlying: boolean;
+  family: ShotFamily;
   track: TrackMode;
   trackRange: number;
   sweepRad: number;
