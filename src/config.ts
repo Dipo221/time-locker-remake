@@ -315,8 +315,24 @@ export const COIN_PER_SCORE = 150;
 export const POD_PULL_COST = 100;
 export const POD_PULL_USES = 3;
 export const POD_PERMANENT_COST = 800;
-/** Cumulative score thresholds that open PODs 2, 3, 4 ... */
-export const POD_UNLOCK_SCORES: readonly number[] = [3000, 12000, 30000];
+/**
+ * Cumulative score at which each further vending machine opens: entry k opens
+ * POD k + 2, so there is one threshold per machine after the first.
+ *
+ * The source says machines grow with accumulated score but gives no numbers,
+ * so this is a quadratic curve: early machines come quickly, then each takes
+ * longer. At a few thousand points a run, the first handful open within a
+ * session and the last of the 25 is a long-term goal.
+ *   POD 2 at 1,400    POD 6 at 15,000    POD 11 at 50,000
+ *   POD 16 at 105,000 POD 21 at 180,000  POD 25 at 254,400
+ */
+export const POD_UNLOCK_SCORES: readonly number[] = Array.from(
+  { length: 24 },
+  (_, i) => {
+    const k = i + 1;
+    return Math.round((1000 * k + 400 * k * k) / 100) * 100;
+  },
+);
 
 /**
  * Weapons bought before a run start already in the loadout. The original

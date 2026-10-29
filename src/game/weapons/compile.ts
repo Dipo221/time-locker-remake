@@ -178,6 +178,13 @@ function materialise(
     // The source: air units "can only be hit by some homing weapons". Rather
     // than tag weapons by hand, anything that steers onto its target counts,
     // so a new homing weapon reaches helicopters without remembering to.
-    hitsFlying: (p.behaviours ?? []).some((b) => b.kind === 'homing'),
+    hitsFlying:
+      p.hitsFlying ?? (p.behaviours ?? []).some((b) => b.kind === 'homing'),
+    track: spec.track ?? 'forward',
+    trackRange: spec.trackRange ?? 520,
+    sweepRad: (spec.sweepDeg ?? 0) * DEG,
+    sweepHz: spec.sweepHz ?? 0.5,
+    // Stagger sweeping emitters too, so two do not mirror each other exactly.
+    sweepPhase: spec.phase,
   };
 }

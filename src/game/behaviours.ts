@@ -38,7 +38,22 @@ export type BehaviourSpec =
     }
   | { kind: 'freezing'; durationSec: number }
   | { kind: 'explodeOnHit'; radius: number; damage: number }
-  | { kind: 'accelerate'; accel: number; maxSpeed: number };
+  | { kind: 'accelerate'; accel: number; maxSpeed: number }
+  /**
+   * Pinball: on a hit, carry on to the next enemy rather than stopping. Give
+   * the projectile `maxHits` of at least bounces + 1, since the hit budget is
+   * what finally ends it.
+   */
+  | { kind: 'bounce'; bounces: number; seekRadius: number }
+  /** On a hit, burst into `count` smaller shots fanned all the way round. */
+  | {
+      kind: 'splitOnHit';
+      count: number;
+      speed: number;
+      size: number;
+      damage: number;
+      lifetime: number;
+    };
 
 /** 'pass' = no opinion; the first consume/destroy ends resolution. */
 export type HitResult = 'consume' | 'pass' | 'destroy';
@@ -50,13 +65,19 @@ export interface Behaviour<S extends BehaviourSpec> {
 }
 
 /** Nearest living enemy within `radius`, or null. */
-function nearestEnemy(w: World, x: number, y: number, radius: number): Enemy | null {
+function nearestEnemy(
+  w: World,
+  x: number,
+  y: number,
+  radius: number,
+  exclude: Enemy | null = null,
+): Enemy | null {
   const pool = w.enemies;
   let best: Enemy | null = null;
   let bestD2 = radius * radius;
   for (let i = 0; i < pool.count; i++) {
     const e = pool.active[i];
-    if (!e.alive) continue;
+    if (!e.alive || e === exclude) continue;
     const dx = e.x - x;
     const dy = e.y - y;
     const d2 = dx * dx + dy * dy;
@@ -135,6 +156,79 @@ const accelerate: Behaviour<Extract<BehaviourSpec, { kind: 'accelerate' }>> = {
   },
 };
 
+const bounce: Behaviour<Extract<BehaviourSpec, { kind: 'bounce' }>> = {
+  kind: 'bounce',
+  onHit(p, t, s, slot, w) {
+    // slot scratch [0] = bounces used so far.
+    const i = slot * 2;
+    if (p.bs[i] >= s.bounces) return 'pass';
+    p.bs[i] += 1;
+
+    // Step out of the thing we just hit FIRST. Without this the projectile is
+    // still overlapping it next frame and "bounces" off the same enemy until
+    // its hit budget is gone - a pinball that never leaves the first bumper.
+    const ax = p.x - t.x;
+    const ay = p.y - t.y;
+    const al = Math.hypot(ax, ay) || 1;
+    const clear = t.hitboxRadius + p.radius + 2;
+    p.x = t.x + (ax / al) * clear;
+    p.y = t.y + (ay / al) * clear;
+
+    // Then carry on to the next enemy if there is one, or rebound if not.
+    const speed = Math.hypot(p.vx, p.vy) || 1;
+    const next = nearestEnemy(w, p.x, p.y, s.seekRadius, t);
+    const dir =
+      next !== null
+        ? Math.atan2(next.y - p.y, next.x - p.x)
+        : Math.atan2(ay, ax);
+    p.vx = Math.cos(dir) * speed;
+    p.vy = Math.sin(dir) * speed;
+    p.angle = dir - Math.PI / 2;
+    return 'pass';
+  },
+};
+
+const splitOnHit: Behaviour<Extract<BehaviourSpec, { kind: 'splitOnHit' }>> = {
+  kind: 'splitOnHit',
+  onHit(p, t, s, _slot, w) {
+    // Fragments start just OUTSIDE the target, so none of them immediately
+    // re-hits the enemy that triggered the split.
+    const start = t.hitboxRadius + s.size * 0.5 + 2;
+    // The world's seeded rng, never Math.random: a run must replay exactly
+    // from its seed, or a reported bug cannot be reproduced.
+    const offset = w.rng.next() * Math.PI * 2;
+    for (let k = 0; k < s.count; k++) {
+      const a = offset + (k / s.count) * Math.PI * 2;
+      const c = w.playerShots.spawn();
+      if (c === null) break;
+      const dx = Math.cos(a);
+      const dy = Math.sin(a);
+      c.x = t.x + dx * start;
+      c.y = t.y + dy * start;
+      c.vx = dx * s.speed;
+      c.vy = dy * s.speed;
+      c.angle = a - Math.PI / 2;
+      c.radius = s.size * 0.42;
+      c.size = s.size;
+      c.damage = s.damage;
+      c.life = s.lifetime;
+      c.faction = p.faction;
+      c.shape = p.shape;
+      c.maxHits = 1;
+      c.hits = 0;
+      c.ownerRef = null;
+      c.ownerGen = -1;
+      // Fragments carry no behaviours, so a split cannot split again forever.
+      c.behaviours = null;
+      c.bs.fill(0);
+      c.targetRef = null;
+      c.targetGen = -1;
+      c.hitsFlying = false;
+    }
+    return 'destroy';
+  },
+};
+
 /** Adding a kind without a handler is a compile error. */
 export const BEHAVIOURS: {
   [K in BehaviourSpec['kind']]: Behaviour<Extract<BehaviourSpec, { kind: K }>>;
@@ -143,6 +237,8 @@ export const BEHAVIOURS: {
   freezing,
   explodeOnHit,
   accelerate,
+  bounce,
+  splitOnHit,
 };
 
 export function runBehaviourUpdates(

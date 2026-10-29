@@ -44,7 +44,21 @@ export interface ProjectileSpec {
   readonly maxHits: number;
   /** Optional steering/effect behaviours, applied in order. */
   readonly behaviours?: readonly BehaviourSpec[];
+  /**
+   * Override for whether this can reach air units. Normally derived - anything
+   * that homes can - but PANDA's bears home onto their prey and the source is
+   * explicit that they cannot hit helicopters, so the rule needs an escape.
+   */
+  readonly hitsFlying?: boolean;
 }
+
+/**
+ * Where an emitter points.
+ *   forward  straight ahead (the default, and nearly everything)
+ *   nearest  at the closest enemy - an auto-aiming turret
+ *   sweep    back and forth across an arc - a rotating gun
+ */
+export type TrackMode = 'forward' | 'nearest' | 'sweep';
 
 /**
  * A declarative description of one gun. Angles are degrees with 0 = forward
@@ -65,6 +79,12 @@ export interface EmitterSpec {
   /** Muzzle offset along the facing axis. */
   readonly muzzleY: number;
   readonly projectile: ProjectileSpec;
+  readonly track?: TrackMode;
+  /** nearest: how far it looks. Falls back to forward with nothing in range. */
+  readonly trackRange?: number;
+  /** sweep: half-width of the arc in degrees, and how fast it crosses it. */
+  readonly sweepDeg?: number;
+  readonly sweepHz?: number;
 }
 
 /** How copy N of a weapon differs from copy 1. Stacking is unbounded. */
@@ -142,6 +162,12 @@ export interface RuntimeEmitter {
   behaviours: readonly BehaviourSpec[] | null;
   /** Can reach air units. True exactly when it homes; see Enemy.flying. */
   hitsFlying: boolean;
+  track: TrackMode;
+  trackRange: number;
+  sweepRad: number;
+  sweepHz: number;
+  /** SCALED seconds of sweep elapsed; mutable firing state like cooldown. */
+  sweepPhase: number;
 }
 
 export interface CompiledLoadout {
