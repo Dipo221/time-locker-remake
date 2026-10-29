@@ -140,6 +140,8 @@ export interface RuntimeEmitter {
   maxHits: number;
   shape: ShapeId;
   behaviours: readonly BehaviourSpec[] | null;
+  /** Can reach air units. True exactly when it homes; see Enemy.flying. */
+  hitsFlying: boolean;
 }
 
 export interface CompiledLoadout {

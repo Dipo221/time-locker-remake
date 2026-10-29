@@ -45,6 +45,8 @@ export interface Projectile extends Poolable {
   /** Homing target, generational so a recycled slot is not mistaken for it. */
   targetRef: Poolable | null;
   targetGen: number;
+  /** Can reach air units. Copied from the emitter; true exactly when it homes. */
+  hitsFlying: boolean;
 }
 
 export function createProjectile(): Projectile {
@@ -72,6 +74,7 @@ export function createProjectile(): Projectile {
     bs: new Float64Array(BEHAVIOUR_SLOTS * 2),
     targetRef: null,
     targetGen: -1,
+    hitsFlying: false,
   };
 }
 
@@ -95,4 +98,5 @@ export function resetProjectile(p: Projectile): void {
   p.bs.fill(0);
   p.targetRef = null;
   p.targetGen = -1;
+  p.hitsFlying = false;
 }

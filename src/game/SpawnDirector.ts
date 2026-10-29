@@ -196,6 +196,12 @@ export class SpawnDirector {
       side = 0;
     }
 
+    // Things that never move must appear AHEAD, where the player will reach
+    // them. A stationary turret or mammoth placed off-screen to the side just
+    // sits there unseen until it is culled - a wasted spawn, and a silent one,
+    // since nothing ever goes visibly wrong. This bit the original turrets too.
+    if (def.archetype === 'turret') side = 0;
+
     // Spawns are placed relative to the VISIBLE window, not the whole world.
     // Scattering them across the full width would strand many of them in the
     // off-screen part of the field, where they threaten nobody.

@@ -7,6 +7,7 @@ import { applyDroneDef } from '../entities/Drone';
 import type { Enemy } from '../entities/Enemy';
 import type { World } from '../World';
 import { damageEnemy, explode } from './damage';
+import { bodyDist2 } from './enemySystem';
 import { emit } from '../weapons/fire';
 import type { RuntimeEmitter } from '../weapons/types';
 import { burst } from './particleSystem';
@@ -120,8 +121,10 @@ export class DroneController {
     for (let i = 0; i < pool.count; i++) {
       const e = pool.active[i];
       if (!e.alive) continue;
+      // A bit grinds what it brushes against; it does not reach overhead.
+      if (e.flying) continue;
       const r = d.hitboxRadius + e.hitboxRadius;
-      if (dist2(e.x, e.y, d.x, d.y) > r * r) continue;
+      if (bodyDist2(e, d.x, d.y) > r * r) continue;
       damageEnemy(w, e, d.damage);
       burst(w.particles, w.rng, d.x, d.y, 2, 90, e.colorRole);
       d.cooldown = d.def.tickSec ?? 0.2;
@@ -161,8 +164,11 @@ export class DroneController {
     d.x += (dx / dist) * sp * dt;
     d.y += (dy / dist) * sp * dt;
 
+    // Seeking companions CAN reach air units - the source names MINE BOT as
+    // one of the few things that hits helicopters - through this direct
+    // strike; the blast that follows is ground-only like any other.
     const r = d.hitboxRadius + t.hitboxRadius;
-    if (dist <= r) {
+    if (bodyDist2(t, d.x, d.y) <= r * r) {
       damageEnemy(w, t, d.damage);
       explode(w, d.x, d.y, d.def.explodeRadius ?? 50, d.def.explodeDamage ?? 2);
       d.alive = false;
@@ -195,7 +201,10 @@ export class DroneController {
       d.x += (dx / dist) * sp * dt;
       d.y += (dy / dist) * sp * dt;
 
-      if (dist <= d.hitboxRadius + t.hitboxRadius) {
+      const rr = d.hitboxRadius + t.hitboxRadius;
+      if (bodyDist2(t, d.x, d.y) <= rr * rr) {
+        // The direct strike is what reaches an air unit; the blast is ground-only.
+        damageEnemy(w, t, d.def.explodeDamage ?? d.damage);
         explode(
           w,
           d.x,
@@ -252,5 +261,6 @@ function supporterEmitter(def: DroneDef): RuntimeEmitter {
     maxHits: 1,
     shape: 'bulletLong',
     behaviours: null,
+    hitsFlying: false,
   };
 }

@@ -1,5 +1,6 @@
 import { dist2 } from '../../core/math';
 import { runBehaviourHits } from '../behaviours';
+import { bodyDist2 } from './enemySystem';
 import type { Projectile } from '../entities/Projectile';
 import type { World } from '../World';
 import { damageEnemy, killPlayer } from './damage';
@@ -31,9 +32,11 @@ export function resolveCollisions(w: World): void {
     for (let j = 0; j < enemies.count; j++) {
       const e = enemies.active[j];
       if (!e.alive) continue;
+      // Air units are out of reach of anything that does not home onto them.
+      if (e.flying && !s.hitsFlying) continue;
 
       const r = s.radius + e.hitboxRadius;
-      if (dist2(s.x, s.y, e.x, e.y) > r * r) continue;
+      if (bodyDist2(e, s.x, s.y) > r * r) continue;
 
       // Damage first, then behaviours add their effects (freeze, blast) and
       // may veto the shot's survival. ICE CANON does zero damage, so this is
@@ -69,9 +72,12 @@ export function resolveCollisions(w: World): void {
       // A shooter cannot hit itself. Generational, so a recycled slot does not
       // inherit the exemption.
       if (s.ownerRef === e && s.ownerGen === e.gen) continue;
+      // Ground fire does not reach the air - which is also what lets a
+      // helicopter's bombs fall through it onto whatever is underneath.
+      if (e.flying) continue;
 
       const r = s.radius + e.hitboxRadius;
-      if (dist2(s.x, s.y, e.x, e.y) > r * r) continue;
+      if (bodyDist2(e, s.x, s.y) > r * r) continue;
 
       damageEnemy(w, e, s.damage);
       burst(w.particles, w.rng, s.x, s.y, 3, 120, e.colorRole);
@@ -104,8 +110,12 @@ export function resolveCollisions(w: World): void {
     for (let j = 0; j < enemies.count; j++) {
       const e = enemies.active[j];
       if (!e.alive) continue;
+      // The source is explicit that a helicopter's own hitbox is only its
+      // bomb zone and that directly beneath it is safe: the body itself is
+      // overhead and cannot touch you.
+      if (e.flying) continue;
       const r = p.hitboxRadius + e.hitboxRadius;
-      if (dist2(p.x, p.y, e.x, e.y) <= r * r) {
+      if (bodyDist2(e, p.x, p.y) <= r * r) {
         killPlayer(w);
         return;
       }

@@ -1,18 +1,58 @@
 import type { ScaledDt } from '../../core/clock';
 import {
   BOSS_CATCHUP_MAX,
-  BOSS_PURSUE_MARGIN,
   BOSS_CATCHUP_RANGE,
   BOSS_CATCHUP_START,
+  BOSS_PURSUE_MARGIN,
   TURN_HOMING,
   VIEW_H,
   VIEW_W,
   WORLD_W,
 } from '../../config';
 import { DEG, clamp, turnToward } from '../../core/math';
+import type { Pool } from '../../core/pool';
+import type { Rng } from '../../core/rng';
+import type { Enemy } from '../entities/Enemy';
+import type { Player } from '../entities/Player';
+
+const CULL_MARGIN = 220;
 
 /** Bosses hold station at least this far inside the corridor edges. */
 const BOSS_EDGE_MARGIN = 70;
+
+/**
+ * Squared distance from a point to an enemy's BODY.
+ *
+ * Most enemies are a circle at (x, y). Snakes and trailers are capsules: a
+ * segment running `length` back along their heading, so the whole body is
+ * dangerous rather than just the head. Every collision against an enemy goes
+ * through here, so a long enemy cannot be harmless along most of its length
+ * in one system and lethal in another.
+ */
+export function bodyDist2(e: Enemy, px: number, py: number): number {
+  if (e.length <= 0) {
+    const dx = px - e.x;
+    const dy = py - e.y;
+    return dx * dx + dy * dy;
+  }
+  // Tail end of the segment, directly behind the head. Follows the FACING
+  // (e.angle), not e.heading: zigzag uses heading as its base course, so a
+  // weaving snake must not have its heading dragged around by the weave.
+  const dir = e.angle + Math.PI / 2;
+  const tx = e.x - Math.cos(dir) * e.length;
+  const ty = e.y - Math.sin(dir) * e.length;
+  const sx = e.x - tx;
+  const sy = e.y - ty;
+  const segLen2 = sx * sx + sy * sy;
+  let t = segLen2 > 0 ? ((px - tx) * sx + (py - ty) * sy) / segLen2 : 0;
+  if (t < 0) t = 0;
+  else if (t > 1) t = 1;
+  const cx = tx + sx * t;
+  const cy = ty + sy * t;
+  const dx = px - cx;
+  const dy = py - cy;
+  return dx * dx + dy * dy;
+}
 
 /**
  * Speed multiplier for a boss that has fallen behind its station.
@@ -36,11 +76,6 @@ function bossCatchup(d: number): number {
   const t = Math.min(1, over / BOSS_CATCHUP_RANGE);
   return 1 + t * (BOSS_CATCHUP_MAX - 1);
 }
-import type { Pool } from '../../core/pool';
-import type { Enemy } from '../entities/Enemy';
-import type { Player } from '../entities/Player';
-
-const CULL_MARGIN = 220;
 
 /**
  * Enemy movement, on the SCALED clock, so an enemy freezes mid-turn with
@@ -56,6 +91,7 @@ export function updateEnemies(
   darknessY: number,
   cameraX: number,
   cameraY: number,
+  rng: Rng,
   dt: ScaledDt,
 ): void {
   const top = cameraY + VIEW_H / 2 + CULL_MARGIN;
@@ -102,6 +138,37 @@ export function updateEnemies(
         e.vy = Math.sin(e.heading) * e.speed + Math.cos(e.heading) * lateral;
         break;
       }
+      case 'hopper': {
+        // Sit still, then leap. The stillness is the tell: a frog that is
+        // about to jump looks exactly like one that is not, so the pause is
+        // the one moment its next position is unknowable - and the reason to
+        // keep a respectful distance.
+        e.chargeTimer -= dt;
+        if (e.charging) {
+          if (e.chargeTimer <= 0) {
+            e.charging = false;
+            e.chargeTimer = e.def.hopPause ?? 0.8;
+            e.vx = 0;
+            e.vy = 0;
+          }
+        } else if (e.chargeTimer <= 0) {
+          e.charging = true;
+          e.chargeTimer = e.def.hopDuration ?? 0.35;
+          const mode = e.def.hopMode ?? 'straight';
+          if (mode === 'homing') {
+            e.heading = Math.atan2(player.y - e.y, player.x - e.x);
+          } else if (mode === 'random') {
+            e.heading = rng.next() * Math.PI * 2;
+          }
+          const s = e.def.hopSpeed ?? e.speed * 4;
+          e.vx = Math.cos(e.heading) * s;
+          e.vy = Math.sin(e.heading) * s;
+        } else {
+          e.vx = 0;
+          e.vy = 0;
+        }
+        break;
+      }
       case 'orbitPlayer': {
         // Hold station AHEAD of the player, weaving laterally.
         //
@@ -119,9 +186,6 @@ export function updateEnemies(
         const R = e.def.orbitRadius ?? 180;
         const weave = Math.sin(e.phase * 0.8) * R * 0.55;
 
-        // Keep the station inside the corridor. Unclamped, the weave can carry
-        // a boss past the screen edge, where it is safe from fire while still
-        // pressing the player - sheltering off-screen is not a boss mechanic.
         // Clamped to the VISIBLE window rather than the world, so a boss
         // cannot shelter in the off-screen part of the wider field.
         const stationX = clamp(
@@ -143,7 +207,7 @@ export function updateEnemies(
         // damage. So whenever it is not comfortably ahead, it also matches
         // the player's own travel with a margin. Per-frame travel, not speed:
         // the player is on the real clock and this is on the scaled one.
-        if (dt > 0 && player.y - e.y > -R * 0.5) {
+        if (player.y - e.y > -R * 0.5) {
           speed = Math.max(speed, (player.stepDist * BOSS_PURSUE_MARGIN) / dt);
         }
         speed = Math.min(speed, e.speed * BOSS_CATCHUP_MAX);
@@ -182,7 +246,7 @@ export function updateEnemies(
           // the phase in which a charger can be left behind for good.
           const cd = Math.hypot(player.x - e.x, player.y - e.y);
           let cs = e.speed * bossCatchup(cd);
-          if (dt > 0 && player.y > e.y) {
+          if (player.y > e.y) {
             cs = Math.max(cs, (player.stepDist * BOSS_PURSUE_MARGIN) / dt);
           }
           cs = Math.min(cs, e.speed * BOSS_CATCHUP_MAX);
@@ -204,7 +268,7 @@ export function updateEnemies(
     e.y += e.vy * dt;
 
     // Face the direction of travel. Shapes are authored facing +Y, hence the
-    // quarter-turn offset.
+    // quarter-turn offset. A hopper sitting still keeps its last facing.
     if (e.vx !== 0 || e.vy !== 0) {
       e.angle = Math.atan2(e.vy, e.vx) - Math.PI / 2;
     }
@@ -223,12 +287,15 @@ export function updateEnemies(
     }
 
     // Bosses are never culled for leaving the view - they chase you down.
+    // Long bodies get their length added, so a trailer is not deleted while
+    // most of it is still on screen.
+    const margin = CULL_MARGIN + e.length;
     if (
       !e.isBoss &&
-      (e.y > top ||
-        e.y < bottom ||
-        e.x < -CULL_MARGIN ||
-        e.x > WORLD_W + CULL_MARGIN)
+      (e.y > top + e.length ||
+        e.y < bottom - e.length ||
+        e.x < -margin ||
+        e.x > WORLD_W + margin)
     ) {
       e.alive = false;
     }

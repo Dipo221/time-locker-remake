@@ -1,7 +1,7 @@
 import { COIN_VALUE, DEATH_PARTICLES } from '../../config';
-import { dist2 } from '../../core/math';
 import type { Enemy } from '../entities/Enemy';
 import type { World } from '../World';
+import { bodyDist2 } from './enemySystem';
 import { burst } from './particleSystem';
 
 /**
@@ -38,7 +38,10 @@ export function explode(
   for (let i = pool.count - 1; i >= 0; i--) {
     const e = pool.active[i];
     if (!e.alive) continue;
-    if (dist2(x, y, e.x, e.y) > r2) continue;
+    // A blast is on the ground. Missiles still reach air units through their
+    // direct homing hit; the splash does not follow them up.
+    if (e.flying) continue;
+    if (bodyDist2(e, x, y) > r2) continue;
     damageEnemy(w, e, damage);
   }
   burst(w.particles, w.rng, x, y, 14, 260, 'orange');

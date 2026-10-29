@@ -254,6 +254,7 @@ export class World {
       this.darkness.y,
       this.camera.x,
       this.camera.y,
+      this.rng,
       S,
     );
     updateEnemyGuns(this, S);

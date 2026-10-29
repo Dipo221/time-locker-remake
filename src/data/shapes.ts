@@ -43,6 +43,10 @@ export type ShapeId =
   | 'gorilla'
   | 'dino'
   | 'insect'
+  | 'lion'
+  | 'car'
+  | 'frog'
+  | 'heli'
   | 'mine'
   | 'bit'
   | 'supporter'
@@ -214,6 +218,55 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
    */
   bulletRound: {
     parts: [{ kind: 'circle', x: 0, y: 0, r: 0.5, fill: 'body' }],
+  },
+
+  /** Lion: the mane is the silhouette. */
+  lion: {
+    parts: [
+      { kind: 'rect', x: -0.2, y: -0.4, w: 0.4, h: 0.46, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.18, r: 0.3, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.24, r: 0.15, fill: 'accent' },
+      ...sym({ kind: 'rect', x: 0.12, y: -0.44, w: 0.1, h: 0.14, fill: 'body' }),
+    ],
+  },
+
+  /** Car: a box on four wheels, seen from above. */
+  car: {
+    parts: [
+      { kind: 'rect', x: -0.28, y: -0.46, w: 0.56, h: 0.92, fill: 'body' },
+      { kind: 'rect', x: -0.18, y: 0.08, w: 0.36, h: 0.22, fill: 'accent' },
+      ...sym({ kind: 'rect', x: 0.26, y: 0.18, w: 0.12, h: 0.2, fill: 'body' }),
+      ...sym({ kind: 'rect', x: 0.26, y: -0.36, w: 0.12, h: 0.2, fill: 'body' }),
+    ],
+  },
+
+  /** Frog: wide and flat, legs folded ready to spring. */
+  frog: {
+    parts: [
+      { kind: 'circle', x: 0, y: 0, r: 0.3, fill: 'body' },
+      ...sym({ kind: 'circle', x: 0.16, y: 0.26, r: 0.1, fill: 'body' }),
+      ...sym({
+        kind: 'poly',
+        points: [0.22, -0.06, 0.48, -0.3, 0.3, -0.36, 0.16, -0.2],
+        fill: 'body',
+      }),
+      ...sym({ kind: 'circle', x: 0.16, y: 0.28, r: 0.045, fill: 'accent' }),
+    ],
+  },
+
+  /**
+   * Helicopter: body plus a rotor cross. Drawn with a shadow underneath in
+   * play, since being airborne is the whole rule - only homing weapons reach
+   * it, and touching it is harmless.
+   */
+  heli: {
+    parts: [
+      { kind: 'circle', x: 0, y: 0.06, r: 0.22, fill: 'body' },
+      { kind: 'rect', x: -0.05, y: -0.46, w: 0.1, h: 0.36, fill: 'body' },
+      { kind: 'rect', x: -0.5, y: 0.02, w: 1.0, h: 0.07, fill: 'body' },
+      { kind: 'rect', x: -0.035, y: -0.44, w: 0.07, h: 1.0, fill: 'body' },
+      { kind: 'circle', x: 0, y: 0.12, r: 0.09, fill: 'accent' },
+    ],
   },
 
   /** MINE BOT: a spiked puck. */

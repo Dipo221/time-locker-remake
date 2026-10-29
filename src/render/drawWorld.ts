@@ -197,20 +197,80 @@ function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
   }
 }
 
+/**
+ * A snake or trailer, drawn as a chain of segments laid along exactly the
+ * capsule the collision code uses (see bodyDist2). Drawing the body any other
+ * way would let what you see and what kills you drift apart - for an enemy
+ * whose entire threat is its length, that is the one thing it must not do.
+ */
+function drawLongBody(
+  ctx: CanvasRenderingContext2D,
+  e: Enemy,
+  color: string,
+): void {
+  const dir = e.angle + Math.PI / 2;
+  const cx = Math.cos(dir);
+  const cy = Math.sin(dir);
+  const r = e.hitboxRadius;
+
+  ctx.fillStyle = color;
+  if (e.shape === 'car') {
+    // Trailer: one long slab.
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.angle);
+    ctx.fillRect(-r, -e.length - r * 0.4, r * 2, e.length + r * 1.4);
+    ctx.fillStyle = COLOR.bg;
+    ctx.fillRect(-r * 0.55, r * 0.15, r * 1.1, r * 0.5);
+    ctx.restore();
+    return;
+  }
+
+  // Snake: overlapping discs, tapering toward the tail.
+  const n = Math.max(3, Math.ceil(e.length / (r * 0.9)));
+  for (let i = n; i >= 0; i--) {
+    const t = i / n;
+    const rr = r * (1 - t * 0.45);
+    ctx.beginPath();
+    ctx.arc(e.x - cx * e.length * t, e.y - cy * e.length * t, rr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Eyes, so the head end is unambiguous.
+  ctx.fillStyle = COLOR.bg;
+  const px = -cy * r * 0.45;
+  const py = cx * r * 0.45;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(e.x + cx * r * 0.3 + px * s, e.y + cy * r * 0.3 + py * s, r * 0.18, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawEnemies(ctx: CanvasRenderingContext2D, pool: Pool<Enemy>): void {
-  for (let i = 0; i < pool.count; i++) {
-    const e = pool.active[i];
-    const frozen = e.frozenFor > 0;
-    drawShape(
-      ctx,
-      e.shape,
-      e.x,
-      e.y,
-      e.drawSize,
-      e.angle,
-      frozen ? COLOR.freeze : enemyColor(e.colorRole),
-      COLOR.bg,
-    );
+  // Ground first, air second, so helicopters pass OVER everything else.
+  for (let pass = 0; pass < 2; pass++) {
+    for (let i = 0; i < pool.count; i++) {
+      const e = pool.active[i];
+      if (e.flying !== (pass === 1)) continue;
+
+      const frozen = e.frozenFor > 0;
+      const color = frozen ? COLOR.freeze : enemyColor(e.colorRole);
+
+      if (e.flying) {
+        // A shadow on the ground, offset from the body. Being airborne is the
+        // whole rule for these, so it has to read at a glance.
+        ctx.fillStyle = 'rgba(30, 32, 36, 0.13)';
+        ctx.beginPath();
+        ctx.ellipse(e.x + 12, e.y - 16, e.drawSize * 0.42, e.drawSize * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (e.length > 0) {
+        drawLongBody(ctx, e, color);
+      } else {
+        drawShape(ctx, e.shape, e.x, e.y, e.drawSize, e.angle, color, COLOR.bg);
+      }
+    }
   }
 }
 

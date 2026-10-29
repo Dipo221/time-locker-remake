@@ -33,9 +33,17 @@ export interface Enemy extends Poolable {
   isBoss: boolean;
   /** Starting hp, so the health bar has a denominator. */
   maxHp: number;
-  /** charger: SCALED seconds left in the current windup or dash. */
+  /**
+   * charger and hopper: SCALED seconds left in the current windup/dash or
+   * pause/hop. The two archetypes share these, since a hop is just a short
+   * dash with a pause in front of it.
+   */
   chargeTimer: number;
   charging: boolean;
+  /** Capsule length behind the head; 0 for an ordinary round enemy. */
+  length: number;
+  /** Air unit: only homing weapons reach it, and touching it is harmless. */
+  flying: boolean;
 }
 
 export function createEnemy(): Enemy {
@@ -65,6 +73,8 @@ export function createEnemy(): Enemy {
     maxHp: 1,
     chargeTimer: 0,
     charging: false,
+    length: 0,
+    flying: false,
   };
 }
 
@@ -92,6 +102,8 @@ export function resetEnemy(e: Enemy): void {
   e.maxHp = 1;
   e.chargeTimer = 0;
   e.charging = false;
+  e.length = 0;
+  e.flying = false;
 }
 
 /** Apply a table entry to a freshly spawned enemy. */
@@ -110,6 +122,8 @@ export function applyDef(e: Enemy, def: EnemyDef): void {
     def.weapon === undefined ? 0 : def.weapon.cadence * def.weapon.phase;
   e.isBoss = def.isBoss === true;
   e.maxHp = def.hp;
-  e.chargeTimer = def.chargeWindup ?? 0;
+  e.chargeTimer = def.chargeWindup ?? def.hopPause ?? 0;
   e.charging = false;
+  e.length = def.length ?? 0;
+  e.flying = def.flying === true;
 }

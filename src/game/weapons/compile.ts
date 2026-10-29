@@ -175,5 +175,9 @@ function materialise(
     maxHits: p.maxHits,
     shape: p.shape,
     behaviours: p.behaviours ?? null,
+    // The source: air units "can only be hit by some homing weapons". Rather
+    // than tag weapons by hand, anything that steers onto its target counts,
+    // so a new homing weapon reaches helicopters without remembering to.
+    hitsFlying: (p.behaviours ?? []).some((b) => b.kind === 'homing'),
   };
 }
