@@ -1,27 +1,46 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>TIME LOCKER</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Time Locker</title>
     <style>
-      :root { color-scheme: light; }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+      /*
+       * One deliberate look rather than a light/dark pair: the play field is
+       * near-white and drawn on the canvas, framed by a dark surround. The page
+       * itself only ever shows that surround.
+       */
+      :root {
+        --surround: #14161a;
+        color-scheme: dark;
+        /*
+         * Keep the canvas inside the phone's safe area, so the score and the
+         * pause button are never under a notch or the home indicator. The
+         * canvas sizes itself to whatever box it is given.
+         */
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      *, *::before, *::after { margin: 0; box-sizing: border-box; }
       html, body {
-        width: 100%; height: 100%;
+        height: 100%;
         overflow: hidden;
-        background: #14161a;
+        background: var(--surround);
         touch-action: none;
         overscroll-behavior: none;
         -webkit-user-select: none;
         user-select: none;
         -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
       }
+      body { padding: 0; }
       #stage {
         display: block;
-        position: absolute;
-        inset: 0;
-        width: 100%; height: 100%;
+        width: 100%;
+        height: 100%;
         touch-action: none;
         cursor: crosshair;
       }

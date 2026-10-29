@@ -31,7 +31,8 @@ const rng = new Rng((Math.random() * 0xffffffff) >>> 0);
 
 if (params.get('wipe') !== '1') loadMeta(meta);
 
-const charParam = params.get('char');
+// Dev builds only: in a published build this would be a free-characters cheat.
+const charParam = import.meta.env.DEV ? params.get('char') : null;
 if (charParam !== null) {
   // Dev convenience: hand the character over outright so it can be tried.
   meta.grant(charParam, 99);
@@ -43,7 +44,12 @@ if (seedParam !== null) rng.reseed(Number(seedParam) >>> 0);
 const lobby = new LobbyScene();
 const game = new GameScene();
 const result = new ResultScene();
-if (params.get('debug') === '0') game.overlay.visible = false;
+// A published build opens clean, with the debug panel off unless asked for.
+// On a phone there is no backquote key to hide it, and on some hosts the
+// query string never reaches the page at all, so off has to be the default.
+game.overlay.visible = import.meta.env.DEV
+  ? params.get('debug') !== '0'
+  : params.get('debug') === '1';
 
 const ctx: SceneCtx = {
   vp,
@@ -62,7 +68,8 @@ const ctx: SceneCtx = {
 const manager = new SceneManager(
   { lobby, game, result },
   ctx,
-  (params.get('scene') as SceneId | null) ?? 'lobby',
+  (import.meta.env.DEV ? (params.get('scene') as SceneId | null) : null) ??
+    'lobby',
 );
 
 precompileShapes();
