@@ -18,6 +18,7 @@ import type { WeaponId } from '../game/weapons/types';
 import { drawButton, label, mono, roundRect } from '../render/ui';
 import { drawShape } from '../render/drawWorld';
 import { saveMeta } from '../game/MetaState';
+import { SavePanel } from './savePanel';
 import type { Scene, SceneCtx } from './scene';
 
 const R = (id: string, x: number, y: number, w: number, h: number): UiRect => ({
@@ -38,6 +39,7 @@ const SHOP: UiRect[] = Array.from({ length: SHOP_SLOTS }, (_, i) =>
   R(`shop${i}`, 24 + i * ((VIEW_W - 48) / SHOP_SLOTS), 622, (VIEW_W - 48) / SHOP_SLOTS - 10, 74),
 );
 const START = R('start', 60, VIEW_H - 150, VIEW_W - 120, 76);
+const SAVE = R('save', 16, 20, 72, 38);
 
 const ALL_SHOP_IDS: WeaponId[] = [...PROJECTILE_WEAPON_IDS, ...DRONE_IDS];
 
@@ -64,6 +66,7 @@ export class LobbyScene implements Scene {
   /** Flash message after a pull, so the player sees what they got. */
   private toast = '';
   private toastFor = 0;
+  private readonly savePanel = new SavePanel();
 
   enter(ctx: SceneCtx): void {
     // The original hands out a small free amount before every run.
@@ -78,6 +81,7 @@ export class LobbyScene implements Scene {
   }
 
   exit(ctx: SceneCtx): void {
+    this.savePanel.close();
     ctx.input.setUiRects([]);
   }
 
@@ -105,6 +109,7 @@ export class LobbyScene implements Scene {
       PULL,
       ...SHOP,
       START,
+      SAVE,
     ]);
   }
 
@@ -112,7 +117,7 @@ export class LobbyScene implements Scene {
     if (this.toastFor > 0) this.toastFor -= realDt;
 
     const tap = ctx.input.consumeTap();
-    if (tap === null) return;
+    if (tap === null || this.savePanel.isOpen) return;
     const meta = ctx.meta;
     let dirty = true;
 
@@ -152,6 +157,12 @@ export class LobbyScene implements Scene {
       }
     } else if (tap === 'start') {
       ctx.go('game');
+    } else if (tap === 'save') {
+      dirty = false;
+      this.savePanel.open(meta, () => {
+        // A loaded save may have fewer PODs open than the one it replaced.
+        this.pod = Math.min(this.pod, meta.podsAvailable());
+      });
     } else {
       dirty = false;
     }
@@ -175,7 +186,9 @@ export class LobbyScene implements Scene {
     c.fillStyle = COLOR.bg;
     c.fillRect(0, 0, VIEW_W, VIEW_H);
 
-    label(c, 'TIME LOCKER', VIEW_W / 2, 48, 34, COLOR.hud, 'center');
+    label(c, 'TIME LOCKER', VIEW_W / 2, 44, 34, COLOR.hud, 'center');
+    mono(c, 'FAN REMAKE', VIEW_W / 2, 72, 12, COLOR.hudDim, 'center');
+    drawButton(c, SAVE, { label: 'SAVE', fontSize: 15 });
     mono(c, `BEST ${meta.highScore}`, 24, 96, 18, COLOR.hudDim);
     mono(c, `COINS ${meta.coins}`, VIEW_W - 24, 96, 20, COLOR.playerShot, 'right');
 
@@ -185,6 +198,16 @@ export class LobbyScene implements Scene {
     this.renderStats(ctx);
 
     drawButton(c, START, { label: 'START', primary: true, fontSize: 28 });
+    // Credit where it is due: this is a tribute, not the original.
+    label(
+      c,
+      'Fan remake of TIME LOCKER (Sotaro Otsuka, 2016). Not affiliated.',
+      VIEW_W / 2,
+      VIEW_H - 40,
+      11,
+      COLOR.hudDim,
+      'center',
+    );
 
     if (this.toastFor > 0) {
       c.globalAlpha = Math.min(1, this.toastFor);

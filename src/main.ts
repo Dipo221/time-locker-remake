@@ -100,6 +100,9 @@ if (typeof ResizeObserver !== 'undefined') {
 }
 
 window.addEventListener('keydown', (e) => {
+  // Typing a save code must not pause the game or have its keys swallowed.
+  const t = e.target;
+  if (t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) return;
   if (e.key === '`' || e.key === '~') {
     game.overlay.visible = !game.overlay.visible;
     e.preventDefault();
