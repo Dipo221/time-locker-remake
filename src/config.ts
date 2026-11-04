@@ -496,6 +496,10 @@ export const COLLISION_USE_GRID = false;
 export const GRID_CELL = 64;
 export const COLLISION_MS_BUDGET = 1.5;
 
+// ------------------------------------------------------------- SHARING
+/** Where a shared score points friends. The public copy, not this page. */
+export const PUBLIC_URL = 'https://dipo221.github.io/time-locker-remake/';
+
 // -------------------------------------------------------------- FLAGS
 export const FLAGS = {
   lobby: false,

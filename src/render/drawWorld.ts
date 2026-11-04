@@ -403,7 +403,21 @@ function drawEnemyShots(
   }
 }
 
-export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
+/** A magnified view: world (fx, fy) drawn at design (sx, sy), `zoom` times. */
+export interface WorldZoom {
+  fx: number;
+  fy: number;
+  zoom: number;
+  sx: number;
+  sy: number;
+}
+
+export function drawWorld(
+  vp: Viewport,
+  w: World,
+  clock: Clock,
+  zoom: WorldZoom | null = null,
+): void {
   const ctx = vp.ctx;
 
   vp.applyDevice();
@@ -425,7 +439,8 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // ---- world space: +Y up, camera-relative. TEXT IS MIRRORED HERE. --------
-  vp.applyWorld(w.camera.x, w.camera.y);
+  if (zoom === null) vp.applyWorld(w.camera.x, w.camera.y);
+  else vp.applyWorldZoom(zoom.fx, zoom.fy, zoom.zoom, zoom.sx, zoom.sy);
 
   drawBackgroundMarks(ctx, w.camera.y);
   drawWalls(ctx, w.camera.y);

@@ -101,6 +101,29 @@ export class Viewport {
     );
   }
 
+  /**
+   * World space magnified by `zoom` about a focus: world point (fx, fy) lands
+   * at design point (sx, sy). Same Y flip as applyWorld. For close-ups, such
+   * as the result screen's look at where the run ended.
+   */
+  applyWorldZoom(
+    fx: number,
+    fy: number,
+    zoom: number,
+    sx: number,
+    sy: number,
+  ): void {
+    const s = this.dpr * this.scale * zoom;
+    this.ctx.setTransform(
+      s,
+      0,
+      0,
+      -s,
+      this.dpr * (this.offsetX + (sx - fx * zoom) * this.scale),
+      this.dpr * (this.offsetY + (sy + fy * zoom) * this.scale),
+    );
+  }
+
   /** World Y at the top and bottom edges of the view, for culling. */
   worldTop(cameraY: number): number {
     return cameraY + VIEW_H / 2;
