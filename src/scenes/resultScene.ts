@@ -1,11 +1,10 @@
-import { COLOR, PUBLIC_URL, SHOT_COLORS, VIEW_H, VIEW_W } from '../config';
+import { COLOR, PUBLIC_URL, VIEW_H, VIEW_W } from '../config';
 import type { UiRect } from '../core/input';
 import { saveMeta } from '../game/MetaState';
-import { weaponFamily } from '../game/weapons/compile';
 import type { WeaponId } from '../game/weapons/types';
 import { drawWorld } from '../render/drawWorld';
 import { roundRect } from '../render/ui';
-import { drawWeaponIcon } from '../render/weaponIcon';
+import { TILES_W, drawWeaponTiles } from '../render/weaponTiles';
 import type { Scene, SceneCtx } from './scene';
 
 const SHARE: UiRect = { id: 'share', x: 24, y: 836, w: 246, h: 88 };
@@ -19,10 +18,7 @@ const FOCUS_X = VIEW_W * 0.4;
 const FOCUS_Y = VIEW_H * 0.6;
 
 /** Weapon tiles, two columns down the right-hand side. */
-const TILE_W = 112;
-const TILE_H = 44;
-const TILE_GAP = 8;
-const TILES_X = VIEW_W - 24 - TILE_W * 2 - TILE_GAP;
+const TILES_X = VIEW_W - 24 - TILES_W;
 const TILES_Y = 420;
 
 const INK = COLOR.ink;
@@ -175,7 +171,7 @@ export class ResultScene implements Scene {
 
     this.renderHeader(c, meta.coins);
     this.renderScore(c);
-    this.renderTiles(c);
+    drawWeaponTiles(c, this.stacks, TILES_X, TILES_Y);
 
     if (this.capturing) {
       this.renderShareFooter(c);
@@ -232,28 +228,6 @@ export class ResultScene implements Scene {
       'rgba(255, 255, 255, 0.78)',
       'center',
     );
-  }
-
-  private renderTiles(c: CanvasRenderingContext2D): void {
-    for (let i = 0; i < this.stacks.length; i++) {
-      const [id, n] = this.stacks[i];
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      const x = TILES_X + col * (TILE_W + TILE_GAP);
-      const y = TILES_Y + row * (TILE_H + TILE_GAP);
-      const fam = SHOT_COLORS[weaponFamily(id)];
-
-      c.fillStyle = INK;
-      roundRect(c, x, y, TILE_W, TILE_H, 8);
-      c.fill();
-      // The shot colour, as on the in-run chips, so the two read as one.
-      c.fillStyle = fam.body;
-      roundRect(c, x, y, 6, TILE_H, 3);
-      c.fill();
-
-      drawWeaponIcon(c, id, x + 36, y + TILE_H / 2, 34, WHITE, INK);
-      text(c, String(n), x + TILE_W - 12, y + TILE_H / 2 + 1, `${HEAVY} 28px ui-sans-serif, system-ui, sans-serif`, WHITE, 'right');
-    }
   }
 
   private renderButtons(c: CanvasRenderingContext2D): void {

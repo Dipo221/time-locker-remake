@@ -3,12 +3,16 @@ import type { UiRect } from '../core/input';
 import { DebugOverlay, drawHint } from '../render/debugOverlay';
 import { drawWorld } from '../render/drawWorld';
 import {
+  GEAR_BUTTON,
+  MENU_BACK,
+  MENU_END_RUN,
+  MENU_OUTSIDE,
   PAUSE_BUTTON,
   RESUME_ZONE,
   drawBossBar,
   drawHud,
   drawPauseButton,
-  drawPauseOverlay,
+  drawPauseScreen,
 } from '../render/hud';
 import type { Scene, SceneCtx } from './scene';
 
@@ -22,6 +26,8 @@ export class GameScene implements Scene {
   readonly overlay = new DebugOverlay();
 
   private paused = false;
+  /** The gear's settings menu, open over the pause screen. */
+  private menuOpen = false;
   private hinted = true;
 
   enter(ctx: SceneCtx): void {
@@ -52,6 +58,7 @@ export class GameScene implements Scene {
     if (v === this.paused) return;
     if (v && ctx.world.phase !== 'playing') return;
     this.paused = v;
+    this.menuOpen = false;
     ctx.tsc.kill();
   }
 
@@ -64,8 +71,12 @@ export class GameScene implements Scene {
   }
 
   private syncRects(ctx: SceneCtx): void {
+    // First match wins, so the order is the priority: the menu's buttons
+    // before its close-on-outside, and the gear before tap-to-resume.
     const rects: UiRect[] = this.paused
-      ? [RESUME_ZONE]
+      ? this.menuOpen
+        ? [MENU_END_RUN, MENU_BACK, MENU_OUTSIDE]
+        : [GEAR_BUTTON, RESUME_ZONE]
       : ctx.world.phase === 'playing'
         ? [PAUSE_BUTTON]
         : [];
@@ -79,6 +90,16 @@ export class GameScene implements Scene {
     const tap = input.consumeTap();
     if (tap === 'pause') this.setPaused(ctx, true);
     else if (tap === 'resume') this.setPaused(ctx, false);
+    else if (tap === 'gear') this.menuOpen = true;
+    else if (tap === 'menuBack') this.menuOpen = false;
+    else if (tap === 'endRun') {
+      // Ends like a death - the result screen banks the coins - but without
+      // the death's slow motion, since nothing killed you.
+      this.setPaused(ctx, false);
+      world.endRun();
+      ctx.go('result');
+      return;
+    }
 
     if (input.consumeCancel()) tsc.kill();
 
@@ -116,14 +137,14 @@ export class GameScene implements Scene {
   }
 
   render(ctx: SceneCtx): void {
-    const { vp, world, clock, tsc } = ctx;
+    const { vp, world, clock, tsc, meta } = ctx;
     drawWorld(vp, world, clock);
-    drawHud(vp, world);
-    drawBossBar(vp, world);
 
     if (this.paused) {
-      drawPauseOverlay(vp, world);
+      drawPauseScreen(vp, world, meta.highScore, this.menuOpen);
     } else {
+      drawHud(vp, world);
+      drawBossBar(vp, world);
       if (world.phase === 'playing') drawPauseButton(vp);
       drawHint(vp, this.hinted && world.phase === 'playing');
     }

@@ -52,7 +52,7 @@ import { compileLoadout } from './weapons/compile';
 import type { CharacterDef, CompiledLoadout, WeaponId } from './weapons/types';
 
 export type Phase = 'playing' | 'dying' | 'dead';
-export type DeathCause = 'darkness' | 'contact' | null;
+export type DeathCause = 'darkness' | 'contact' | 'quit' | null;
 
 /**
  * Owns every pool and the system ordering.
@@ -289,6 +289,16 @@ export class World {
     if (this.phase !== 'playing') return;
     if (this.player.invulnRealFor > 0) return;
     if (this.darkness.swallows(this.player.y)) this.kill('darkness');
+  }
+
+  /**
+   * The player chose to stop. Straight to 'dead', skipping the death's slow
+   * motion: nothing killed them, so there is nothing to watch.
+   */
+  endRun(): void {
+    if (this.phase !== 'playing') return;
+    this.deathCause = 'quit';
+    this.phase = 'dead';
   }
 
   kill(cause: DeathCause): void {

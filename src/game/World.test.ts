@@ -127,3 +127,22 @@ describe('the freeze', () => {
     expect(w.deathCause).toBe('darkness');
   });
 });
+
+describe('ending a run by choice', () => {
+  it('goes straight to dead, marked as a quit', () => {
+    const w = new World();
+    w.reset(1);
+    w.endRun();
+    expect(w.phase).toBe('dead');
+    expect(w.deathCause).toBe('quit');
+  });
+
+  it('does nothing once the run is already over', () => {
+    const w = new World();
+    w.reset(1);
+    w.kill('contact');
+    w.endRun();
+    expect(w.phase).toBe('dying');
+    expect(w.deathCause).toBe('contact');
+  });
+});

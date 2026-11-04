@@ -447,6 +447,10 @@ export const COLOR = {
   obstacleSide: '#9f9a90',
   /** The face of a green, coin-carrying obstacle. */
   coinCarrierSide: '#1d7f4e',
+  /** Pause screen, after the original: the score turns red while stopped. */
+  pauseScore: '#e3262d',
+  /** The original's teal for secondary buttons (the settings gear). */
+  uiTeal: '#1aa0c0',
 } as const;
 
 /**
