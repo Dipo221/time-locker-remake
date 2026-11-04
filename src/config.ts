@@ -323,18 +323,24 @@ export const POD_PERMANENT_COST = 800;
  *
  * The source says machines grow with accumulated score but gives no numbers,
  * so this is a quadratic curve: early machines come quickly, then each takes
- * longer. At a few thousand points a run, the first handful open within a
- * session and the last of the 25 is a long-term goal.
- *   POD 2 at 1,400    POD 6 at 15,000    POD 11 at 50,000
- *   POD 16 at 105,000 POD 21 at 180,000  POD 25 at 254,400
+ * longer. Play-testing found the first version (a third of these) opened
+ * machines far too fast - most of a run's worth per POD - so it was tripled:
+ *   POD 2 at 4,200     POD 6 at 45,000    POD 11 at 150,000
+ *   POD 16 at 315,000  POD 21 at 540,000  POD 25 at 763,200
  */
-export const POD_UNLOCK_SCORES: readonly number[] = Array.from(
-  { length: 24 },
-  (_, i) => {
+export const POD_UNLOCK_SCORES: readonly number[] = podCurve(3);
+/**
+ * The first, faster curve. Kept only so saves made under it keep every
+ * machine they had already opened - see MetaState.podsOpen.
+ */
+export const POD_UNLOCK_SCORES_V1: readonly number[] = podCurve(1);
+
+function podCurve(scale: number): number[] {
+  return Array.from({ length: 24 }, (_, i) => {
     const k = i + 1;
-    return Math.round((1000 * k + 400 * k * k) / 100) * 100;
-  },
-);
+    return Math.round((scale * (1000 * k + 400 * k * k)) / 100) * 100;
+  });
+}
 
 /**
  * The weapon machine in the lobby: a random weapon, as the original's is,

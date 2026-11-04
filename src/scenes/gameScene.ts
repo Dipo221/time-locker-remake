@@ -1,4 +1,4 @@
-import { VIEW_H, VIEW_W } from '../config';
+import { VIEW_H } from '../config';
 import { CHARACTERS } from '../data/characters';
 import type { UiRect } from '../core/input';
 import { DebugOverlay, drawHint } from '../render/debugOverlay';
@@ -167,19 +167,20 @@ export class GameScene implements Scene {
     const { vp, world, clock, tsc, meta } = ctx;
     const floor = this.floor;
     const current = this.floorCurrent;
-    drawWorld(vp, world, clock, null, floor === null ? null : (c) => drawLobbyFloor(c, floor, current));
-    // The floor's lettering, while any of it is still in view and above the
-    // darkness. Clipped to the play rect like the world.
-    if (floor !== null && world.camera.y - VIEW_H / 2 < 200) {
-      const c = vp.ctx;
-      c.save();
-      vp.applyUi();
-      c.beginPath();
-      c.rect(0, 0, VIEW_W, VIEW_H);
-      c.clip();
-      drawLobbyLabels(c, floor, meta, current, world.camera.x, world.camera.y, world.darkness.y);
-      c.restore();
-    }
+    // The lobby floor, lettering included, goes in UNDER everything that
+    // moves - the player above all - and the darkness covers it as it comes.
+    const underlay =
+      floor === null
+        ? null
+        : (c: CanvasRenderingContext2D): void => {
+            drawLobbyFloor(c, floor, current);
+            if (world.camera.y - VIEW_H / 2 > 200) return;
+            c.save();
+            vp.applyUi();
+            drawLobbyLabels(c, floor, meta, current, world.camera.x, world.camera.y, -Infinity);
+            c.restore();
+          };
+    drawWorld(vp, world, clock, null, underlay);
 
     if (this.paused) {
       drawPauseScreen(vp, world, meta.highScore, this.menuOpen);

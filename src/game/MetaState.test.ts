@@ -4,6 +4,7 @@ import {
   POD_PULL_COST,
   POD_PULL_USES,
   POD_UNLOCK_SCORES,
+  POD_UNLOCK_SCORES_V1,
 } from '../config';
 import { Rng } from '../core/rng';
 import { CHARACTERS, DEFAULT_CHARACTER, charactersInPod } from '../data/characters';
@@ -182,5 +183,35 @@ describe('persistence', () => {
     expect(m.selected, 'must not select a character that is gone').toBe(
       DEFAULT_CHARACTER,
     );
+  });
+});
+
+describe('opened machines stay open', () => {
+  it('keeps a machine open whatever the curve says later', () => {
+    const m = meta();
+    m.bankRun(POD_UNLOCK_SCORES[2], 0);
+    expect(m.podsAvailable()).toBe(4);
+    m.totalScore = 0; // as if the curve had been raised past it
+    expect(m.podsAvailable()).toBe(4);
+  });
+
+  it('a save from before the retune keeps what the old curve had opened', () => {
+    // Enough for POD 5 on the old curve, but only POD 3 on the new one.
+    const total = POD_UNLOCK_SCORES_V1[3];
+    expect(total).toBeLessThan(POD_UNLOCK_SCORES[2]);
+    const old = { coins: 0, highScore: 0, totalScore: total, selected: DEFAULT_CHARACTER, owned: {} };
+    const m = meta();
+    m.load(old);
+    expect(m.podsAvailable()).toBe(5);
+    // And it survives a save and reload under the new format.
+    const again = meta();
+    again.load(JSON.parse(JSON.stringify(m.toJSON())));
+    expect(again.podsAvailable()).toBe(5);
+  });
+
+  it('a brand-new save opens on the new, slower curve', () => {
+    const m = meta();
+    m.load({ coins: 0, highScore: 0, totalScore: POD_UNLOCK_SCORES_V1[3], podsOpen: 1, selected: DEFAULT_CHARACTER, owned: {} });
+    expect(m.podsAvailable()).toBe(2);
   });
 });

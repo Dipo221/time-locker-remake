@@ -25,7 +25,7 @@ import { roundRect } from '../render/ui';
 export const START_Y = 0;
 /** Left of centre, so you appear in the open lane, not beside a machine. */
 export const SPAWN_X = 365;
-export const SPAWN_Y = -380;
+export const SPAWN_Y = -360;
 export const MACHINE_HALF = 45;
 
 /*
@@ -34,14 +34,19 @@ export const MACHINE_HALF = 45;
  * lane up the middle to the START line is clear for the widest character.
  */
 const WEAPON_AT = { x: 170, y: -250 };
-const PEDESTAL_AT = { x: 170, y: -420 };
+const PEDESTAL_AT = { x: 170, y: -470 };
 /** POD machines: two columns down the right-hand side. */
 const POD_COLS = [455, 592];
 const POD_TOP = -250;
-const POD_STEP = 150;
+/*
+ * Row to row. 150 left a 60-unit gap, and the lower machine's price tag sat
+ * in it: on a phone the walk between two rows was a squeeze, and the tag
+ * drew over the character. 220 leaves room for both.
+ */
+const POD_STEP = 220;
 /** The yard of characters you own: three columns, all on screen from the lane. */
 const YARD_COLS = [140, 215, 290];
-const YARD_TOP = -620;
+const YARD_TOP = -700;
 const YARD_STEP = 96;
 
 export type MachineKind = 'pod' | 'weapon' | 'pedestal';

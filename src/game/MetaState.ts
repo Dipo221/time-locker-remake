@@ -4,6 +4,7 @@ import {
   POD_PULL_COST,
   POD_PULL_USES,
   POD_UNLOCK_SCORES,
+  POD_UNLOCK_SCORES_V1,
 } from '../config';
 import { CHARACTERS, DEFAULT_CHARACTER, MAX_POD } from '../data/characters';
 import type { Rng } from '../core/rng';
@@ -21,8 +22,19 @@ interface SaveShape {
   coins: number;
   highScore: number;
   totalScore: number;
+  /** Highest POD ever opened. Absent from saves before the curve changed. */
+  podsOpen?: number;
   selected: string;
   owned: Record<string, OwnedCharacter>;
+}
+
+/** How many machines a cumulative score opens on a given curve. */
+function podsFor(total: number, curve: readonly number[]): number {
+  let n = 1;
+  for (const threshold of curve) {
+    if (total >= threshold) n++;
+  }
+  return Math.min(MAX_POD, n);
 }
 
 /**
@@ -42,6 +54,12 @@ export class MetaState {
   highScore = 0;
   /** Cumulative across all runs. Drives how many PODs are available. */
   totalScore = 0;
+  /**
+   * The most machines this save has ever had open. A machine, once open,
+   * stays open: the unlock curve has been retuned once already, and a player
+   * whose machines locked again would rightly feel robbed.
+   */
+  podsOpen = 1;
   selected: string = DEFAULT_CHARACTER;
   readonly owned = new Map<string, OwnedCharacter>();
 
@@ -91,11 +109,7 @@ export class MetaState {
   // ------------------------------------------------------------------ pods
   /** How many vending machines are available, given cumulative score. */
   podsAvailable(): number {
-    let n = 1;
-    for (const threshold of POD_UNLOCK_SCORES) {
-      if (this.totalScore >= threshold) n++;
-    }
-    return Math.min(MAX_POD, n);
+    return Math.max(this.podsOpen, podsFor(this.totalScore, POD_UNLOCK_SCORES));
   }
 
   /** Cumulative score needed for the next POD, or null when all are open. */
@@ -158,6 +172,7 @@ export class MetaState {
     this.coins += total;
     this.totalScore += score;
     if (score > this.highScore) this.highScore = score;
+    this.podsOpen = this.podsAvailable();
     return total;
   }
 
@@ -175,6 +190,7 @@ export class MetaState {
       coins: this.coins,
       highScore: this.highScore,
       totalScore: this.totalScore,
+      podsOpen: this.podsOpen,
       selected: this.selected,
       owned,
     };
@@ -187,6 +203,12 @@ export class MetaState {
     this.coins = numberOr(d.coins, 0);
     this.highScore = numberOr(d.highScore, 0);
     this.totalScore = numberOr(d.totalScore, 0);
+    // A save from before podsOpen existed opened machines on the old, faster
+    // curve; honour what it had then rather than closing them.
+    this.podsOpen = Math.min(
+      MAX_POD,
+      Math.max(1, numberOr(d.podsOpen, podsFor(this.totalScore, POD_UNLOCK_SCORES_V1))),
+    );
 
     this.owned.clear();
     this.owned.set(DEFAULT_CHARACTER, { uses: Infinity, permanent: true });

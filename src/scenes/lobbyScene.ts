@@ -24,9 +24,11 @@ import { saveMeta } from '../game/MetaState';
 import type { MetaState } from '../game/MetaState';
 import { createPlayer } from '../game/entities/Player';
 import { pushCircleOutOfBox } from '../game/systems/playerSystem';
+import { updateProjectiles } from '../game/systems/projectileSystem';
+import { updatePlayerGuns } from '../game/systems/weaponSystem';
 import { rollWeapon } from '../game/weaponDrops';
 import type { WeaponId } from '../game/weapons/types';
-import { drawGround, drawShape } from '../render/drawWorld';
+import { drawDrones, drawGround, drawPlayerShots, drawShape } from '../render/drawWorld';
 import { gear } from '../render/hud';
 import { roundRect } from '../render/ui';
 import { drawWeaponIcon } from '../render/weaponIcon';
@@ -85,6 +87,12 @@ function weaponName(id: WeaponId): string {
  *
  * Near a POD machine a card shows what is inside: kept characters in full,
  * ones still to find as "?" - the original never said what a machine held.
+ *
+ * And you shoot. The character fires its real guns - its own, plus anything
+ * the weapon machine has given you - through the run's own gun, bullet and
+ * drone systems on an empty world, under the run's own rule that time moves
+ * only while you do. Picking a character is choosing a weapon; you should
+ * see what it does before you commit a run to it.
  */
 export class LobbyScene implements Scene {
   readonly id = 'lobby' as const;
@@ -126,6 +134,8 @@ export class LobbyScene implements Scene {
     this.player.x = SPAWN_X;
     this.player.y = SPAWN_Y;
     this.camera.reset(this.player.x, this.player.y);
+    this.arm(ctx);
+    ctx.tsc.kill();
 
     this.holdOn = null;
     this.hold = 0;
@@ -157,11 +167,27 @@ export class LobbyScene implements Scene {
     p.dragGain = def.dragGain;
   }
 
+  /**
+   * Load the shared world with what this character would start a run with -
+   * its own guns, its free start weapons, and what has been bought - so the
+   * lobby can fire them. The world is otherwise empty: no enemies, nothing
+   * spawning, so homing shots fly straight and nothing explodes.
+   */
+  private arm(ctx: SceneCtx): void {
+    const { world, meta } = ctx;
+    world.setCharacter(meta.selected);
+    for (const id of CHARACTERS[meta.selected]?.startWeapons ?? []) world.addWeapon(id);
+    for (const id of ctx.pending) world.addWeapon(id);
+    world.player.x = this.player.x;
+    world.player.y = this.player.y;
+  }
+
   private switchTo(ctx: SceneCtx, id: string): void {
     const def = CHARACTERS[id];
     if (def === undefined) return;
     ctx.meta.selected = id;
     this.become(id);
+    this.arm(ctx);
     saveMeta(ctx.meta);
     this.say(def.name, `${def.blurb ?? ''}${def.blurb ? '  ·  ' : ''}HITBOX ${def.hitboxRadius}`);
   }
@@ -176,9 +202,11 @@ export class LobbyScene implements Scene {
     const { input, meta, clock } = ctx;
     if (this.toastFor > 0) this.toastFor -= realDt;
 
-    // The camera runs on the real clock, like the player's body in a run.
-    clock.advance(realDt, 0);
     const frame = input.beginFrame(realDt);
+    // Time moves as you move, exactly as in a run: the guns and bullets run
+    // on it, the body and the camera on the real clock.
+    const timeScale = ctx.tsc.update(frame.pathLength, frame.holding, frame.sinceLastMove, realDt);
+    clock.advance(realDt, timeScale);
     input.consumeCancel();
     const tap = input.consumeTap();
 
@@ -199,6 +227,7 @@ export class LobbyScene implements Scene {
       this.savePanel.open(meta, () => {
         this.floor = buildLobbyFloor(meta);
         this.become(meta.selected);
+        this.arm(ctx);
       });
       return;
     }
@@ -224,6 +253,16 @@ export class LobbyScene implements Scene {
 
     this.camera.follow(p.y, -Infinity, clock.real);
     this.camera.followX(p.x, clock.real);
+
+    // ---- fire --------------------------------------------------------------
+    const w = ctx.world;
+    w.player.x = p.x;
+    w.player.y = p.y;
+    updatePlayerGuns(w, clock.scaled);
+    updateProjectiles(w.playerShots, this.camera.y, clock.scaled, w);
+    w.droneCtl.update(w, clock.scaled);
+    w.playerShots.compact();
+    w.drones.compact();
 
     // ---- over the line: the run begins right here ----------------------------
     if (p.y >= START_Y) {
@@ -308,6 +347,7 @@ export class LobbyScene implements Scene {
       meta.coins -= WEAPON_MACHINE_COST;
       const id = rollWeapon(ctx.rng);
       ctx.pending.push(id);
+      ctx.world.addWeapon(id);
       this.say(`+ ${weaponName(id)}`, 'ready for the next run');
     } else if (meta.buyPermanent(meta.selected)) {
       this.say(`${CHARACTERS[meta.selected]?.name ?? ''} IS YOURS`, 'kept forever');
@@ -337,6 +377,12 @@ export class LobbyScene implements Scene {
     drawGround(c, this.camera.y);
     drawLobbyFloor(c, this.floor, meta.selected);
 
+    // The floor's lettering next, so that you, your drones and your shots are
+    // always drawn over it - never a price tag over your character.
+    vp.applyUi();
+    drawLobbyLabels(c, this.floor, meta, meta.selected, this.camera.x, this.camera.y, -Infinity);
+    vp.applyWorld(this.camera.x, this.camera.y);
+
     // The purchase ring fills round you while you lean on a machine.
     if (this.hold > 0) {
       c.strokeStyle = COLOR.playerShot;
@@ -346,9 +392,10 @@ export class LobbyScene implements Scene {
       c.stroke();
     }
     drawShape(c, p.shape, p.x, p.y, p.drawSize, 0, COLOR.player, COLOR.bg, COLOR.ink, PLAYER_OUTLINE_PX);
+    drawDrones(c, ctx.world.drones);
+    drawPlayerShots(c, ctx.world.playerShots);
 
     vp.applyUi();
-    drawLobbyLabels(c, this.floor, meta, meta.selected, this.camera.x, this.camera.y, -Infinity);
     if (!meta.isPermanent(meta.selected)) {
       usesBadge(c, p.x - this.camera.x + 20, VIEW_H / 2 - (p.y - this.camera.y) - 22, meta.usesLeft(meta.selected));
     }

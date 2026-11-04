@@ -200,7 +200,7 @@ function drawPickups(
  * so they must never be mistaken for something incoming. They wear the colour
  * of what they do, by the same rule as shots, and the same rim.
  */
-function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
+export function drawDrones(ctx: CanvasRenderingContext2D, pool: Pool<Drone>): void {
   for (let i = 0; i < pool.count; i++) {
     const d = pool.active[i];
     const c = SHOT_COLORS[d.def.family];
@@ -328,7 +328,7 @@ function drawEnemies(ctx: CanvasRenderingContext2D, pool: Pool<Enemy>): void {
  * fire's white ring, so even a round player shot never wears enemy fire's
  * pattern.
  */
-function drawPlayerShots(
+export function drawPlayerShots(
   ctx: CanvasRenderingContext2D,
   pool: Pool<Projectile>,
 ): void {
