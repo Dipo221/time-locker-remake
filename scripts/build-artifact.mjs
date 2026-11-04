@@ -1,10 +1,10 @@
 // Packs the production build into ONE self-contained HTML file for hosting as
 // a claude.ai artifact.
 //
-// The artifact host wraps the file in its own <!doctype>/<head>/<body>
-// skeleton and supplies the viewport meta, so this emits only the page's own
-// title, styles, canvas and script, with the script inlined. Run via
-// `npm run build:artifact`; the output lands in dist/time-locker.html.
+// A complete document: the artifact host serves it as-is, so it carries its
+// own doctype, charset and viewport meta (viewport-fit=cover is safe because
+// the page pads itself with env(safe-area-inset-*)). The script is inlined.
+// Run via `npm run build:artifact`; the output lands in dist/time-locker.html.
 //
 // Fails loudly rather than emitting a broken page if Vite's output ever stops
 // matching what this expects.
@@ -25,6 +25,10 @@ function need(match, what) {
 
 const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 
+const viewport = need(
+  html.match(/<meta\s+name="viewport"[\s\S]*?\/?>/),
+  'the viewport <meta>',
+)[0];
 const title = need(html.match(/<title>[\s\S]*?<\/title>/), '<title>')[0];
 const style = need(html.match(/<style>[\s\S]*?<\/style>/), '<style>')[0];
 const src = need(
@@ -38,10 +42,19 @@ let js = readFileSync(join(DIST, src), 'utf8');
 js = js.replaceAll('</script', '<\\/script');
 
 const page = [
+  '<!doctype html>',
+  '<html lang="en">',
+  '<head>',
+  '<meta charset="UTF-8" />',
+  viewport,
   title,
   style,
+  '</head>',
+  '<body>',
   '<canvas id="stage"></canvas>',
   `<script type="module">\n${js}\n</script>`,
+  '</body>',
+  '</html>',
   '',
 ].join('\n');
 
