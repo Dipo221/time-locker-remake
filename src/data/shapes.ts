@@ -304,13 +304,12 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
   },
 
   /**
-   * Player fire: elongated along travel, so it reads as "going somewhere".
-   * The shape difference is one of four independent differentiators between
-   * player and enemy bullets - see drawWorld.
+   * Player fire: a bar, as in the original, elongated along travel so it
+   * reads as "going somewhere". The shape difference is one of four
+   * independent differentiators between player and enemy bullets - see
+   * drawWorld.
    */
   bulletLong: {
-    parts: [
-      { kind: 'poly', points: [0, 0.5, 0.26, 0, 0, -0.5, -0.26, 0], fill: 'body' },
-    ],
+    parts: [{ kind: 'rect', x: -0.15, y: -0.5, w: 0.3, h: 1, fill: 'body' }],
   },
 };

@@ -418,7 +418,8 @@ export const SHOT_COLORS = {
   homing: { body: '#7cb518', edge: '#395800' },
   /** Took over the old plain-shot blue: any warm colour was too near orange. */
   explosive: { body: COLOR.playerShot, edge: COLOR.playerShotEdge },
-  pierce: { body: '#9a5cff', edge: '#6000b7' },
+  /** Deep blue, as in the original's BEAM. */
+  pierce: { body: '#1a37a8', edge: '#0c1a66' },
   /** The same family as the frozen-enemy tint: the cause matches the effect. */
   ice: { body: '#3abdee', edge: '#005570' },
 } as const satisfies Record<ShotFamily, { body: string; edge: string }>;
