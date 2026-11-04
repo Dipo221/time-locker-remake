@@ -377,7 +377,7 @@ export const COLOR = {
    * thing on screen to find.
    */
   player: '#dc4ac1',
-  /** Plain player fire, and the UI accent. See SHOT_COLORS for the rest. */
+  /** The UI accent, and explosive player fire. See SHOT_COLORS. */
   playerShot: '#2b6cf6',
   playerShotEdge: '#133b8f',
   /** Enemy fire: one hot warning colour. Nothing else may come near this hue. */
@@ -410,9 +410,14 @@ export const COLOR = {
  * (amber, ice) visible on the near-white field, and the HUD chip text colour.
  */
 export const SHOT_COLORS = {
-  basic: { body: COLOR.playerShot, edge: COLOR.playerShotEdge },
+  /**
+   * Orange, as in the original. Pushed as far toward yellow as it can go and
+   * still read as orange, because a true orange sits too close to enemy fire.
+   */
+  basic: { body: '#fea92f', edge: '#6c4300' },
   homing: { body: '#7cb518', edge: '#395800' },
-  explosive: { body: '#f5b014', edge: '#664700' },
+  /** Took over the old plain-shot blue: any warm colour was too near orange. */
+  explosive: { body: COLOR.playerShot, edge: COLOR.playerShotEdge },
   pierce: { body: '#9a5cff', edge: '#6000b7' },
   /** The same family as the frozen-enemy tint: the cause matches the effect. */
   ice: { body: '#3abdee', edge: '#005570' },
