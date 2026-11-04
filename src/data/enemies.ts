@@ -37,10 +37,8 @@ const ENEMY_SHOT = {
  * preserving exactly because it teaches the player to read a crowded screen at
  * a glance:
  *   black  - travels straight along its heading
- *   purple - homes toward the player
- *   orange - zigzags, and is fast
- * (Purple chases per the user's memory of the original; the research notes
- * this was first built from had the two the other way round.)
+ *   orange - homes toward the player
+ *   purple - zigzags, and is fast
  *   blue   - carries a weapon
  *   green  - carries coins
  */
@@ -135,7 +133,7 @@ export interface EnemyDef {
   /**
    * Where each hop points. 'straight' keeps its spawn heading, 'homing'
    * re-aims at the player every hop, 'random' picks any direction - the
-   * source's black, purple and orange frogs respectively.
+   * source's black, orange and purple frogs respectively.
    */
   readonly hopMode?: 'straight' | 'homing' | 'random';
 
@@ -191,8 +189,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     groupMax: 6,
   },
   {
-    id: 'penguin.purple',
-    colorRole: 'purple',
+    id: 'penguin.orange',
+    colorRole: 'orange',
     shape: 'penguin',
     drawSize: 36,
     hitboxRadius: 13,
@@ -207,8 +205,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     groupMax: 2,
   },
   {
-    id: 'dog.purple',
-    colorRole: 'purple',
+    id: 'dog.orange',
+    colorRole: 'orange',
     shape: 'dog',
     drawSize: 34,
     hitboxRadius: 12,
@@ -223,8 +221,8 @@ export const ENEMIES: readonly EnemyDef[] = [
     groupMax: 3,
   },
   {
-    id: 'dog.orange',
-    colorRole: 'orange',
+    id: 'dog.purple',
+    colorRole: 'purple',
     shape: 'dog',
     drawSize: 34,
     hitboxRadius: 12,
@@ -298,7 +296,7 @@ export const ENEMIES: readonly EnemyDef[] = [
    */
   {
     id: 'turret.horizontal',
-    colorRole: 'orange',
+    colorRole: 'purple',
     shape: 'block',
     drawSize: 38,
     hitboxRadius: 15,
@@ -351,8 +349,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Homing tank: less persistent than other homers, but it aims at you. */
   {
-    id: 'tank.purple',
-    colorRole: 'purple',
+    id: 'tank.orange',
+    colorRole: 'orange',
     shape: 'block',
     drawSize: 40,
     hitboxRadius: 16,
@@ -383,7 +381,7 @@ export const ENEMIES: readonly EnemyDef[] = [
    */
   {
     id: 'infantry',
-    colorRole: 'purple',
+    colorRole: 'orange',
     shape: 'locker',
     drawSize: 26,
     hitboxRadius: 10,
@@ -437,8 +435,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Purple penguin: weaves, so shots slide off it. Source: 3/1/3. */
   {
-    id: 'penguin.orange',
-    colorRole: 'orange',
+    id: 'penguin.purple',
+    colorRole: 'purple',
     shape: 'penguin',
     drawSize: 34,
     hitboxRadius: 12,
@@ -457,8 +455,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Orange birds come in flocks, head-on. Source: 1/1/2. */
   {
-    id: 'bird.purple',
-    colorRole: 'purple',
+    id: 'bird.orange',
+    colorRole: 'orange',
     shape: 'bird',
     drawSize: 30,
     hitboxRadius: 9,
@@ -493,8 +491,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Orange lion: hunts you, and favours the flanks. Source: 2/3/3. */
   {
-    id: 'lion.purple',
-    colorRole: 'purple',
+    id: 'lion.orange',
+    colorRole: 'orange',
     shape: 'lion',
     drawSize: 40,
     hitboxRadius: 14,
@@ -534,8 +532,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Orange frog: re-aims at you before every hop. Source: 2/3/3. */
   {
-    id: 'frog.purple',
-    colorRole: 'purple',
+    id: 'frog.orange',
+    colorRole: 'orange',
     shape: 'frog',
     drawSize: 36,
     hitboxRadius: 13,
@@ -554,8 +552,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Purple frog: hops constantly, anywhere. Source: 3/1/3. */
   {
-    id: 'frog.orange',
-    colorRole: 'orange',
+    id: 'frog.purple',
+    colorRole: 'purple',
     shape: 'frog',
     drawSize: 32,
     hitboxRadius: 11,
@@ -598,8 +596,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Purple snake: faster than you are. Source: 4/2/4. */
   {
-    id: 'snake.orange',
-    colorRole: 'orange',
+    id: 'snake.purple',
+    colorRole: 'purple',
     shape: 'dog',
     drawSize: 24,
     hitboxRadius: 10,
@@ -633,8 +631,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Orange dinosaur: homing and hard to shake. Source: 2/2/3. */
   {
-    id: 'dino.purple',
-    colorRole: 'purple',
+    id: 'dino.orange',
+    colorRole: 'orange',
     shape: 'dino',
     drawSize: 46,
     hitboxRadius: 15,
@@ -681,8 +679,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Purple bear: fast, weaving and tough - lethal in a frontal pack. Source: 3/3/5. */
   {
-    id: 'bear.orange',
-    colorRole: 'orange',
+    id: 'bear.purple',
+    colorRole: 'purple',
     shape: 'bear',
     drawSize: 46,
     hitboxRadius: 17,
@@ -717,8 +715,8 @@ export const ENEMIES: readonly EnemyDef[] = [
 
   /** Purple car: swerves. Source: 2/2/3. */
   {
-    id: 'car.orange',
-    colorRole: 'orange',
+    id: 'car.purple',
+    colorRole: 'purple',
     shape: 'car',
     drawSize: 42,
     hitboxRadius: 15,
@@ -794,8 +792,8 @@ export const ENEMIES: readonly EnemyDef[] = [
    * mostly cannot touch it.
    */
   {
-    id: 'heli.purple',
-    colorRole: 'purple',
+    id: 'heli.orange',
+    colorRole: 'orange',
     shape: 'heli',
     drawSize: 50,
     hitboxRadius: 16,
