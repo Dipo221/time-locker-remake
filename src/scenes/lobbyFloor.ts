@@ -23,8 +23,8 @@ import { roundRect } from '../render/ui';
  * too, so the machines behind you are still there as the darkness rises.
  */
 export const START_Y = 0;
-/** Left of centre, so you appear in the open lane, not beside a machine. */
-export const SPAWN_X = 365;
+/** In the open lane up the middle, not beside a machine. */
+export const SPAWN_X = 340;
 export const SPAWN_Y = -360;
 export const MACHINE_HALF = 45;
 
@@ -44,8 +44,12 @@ const POD_TOP = -250;
  * drew over the character. 220 leaves room for both.
  */
 const POD_STEP = 220;
-/** The yard of characters you own: three columns, all on screen from the lane. */
-const YARD_COLS = [140, 215, 290];
+/**
+ * The yard of characters you own: three columns lined up under the weapon
+ * and pedestal machines, so the left side reads as one column of things and
+ * the middle stays an open lane. It grows downward as the roster grows.
+ */
+const YARD_COLS = [65, 140, 215];
 const YARD_TOP = -700;
 const YARD_STEP = 96;
 

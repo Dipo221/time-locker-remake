@@ -410,6 +410,10 @@ export class LobbyScene implements Scene {
   }
 
   private renderHud(c: CanvasRenderingContext2D, meta: MetaState, pending: readonly WeaponId[]): void {
+    // A light backing, so the floor's big lettering scrolling underneath
+    // never runs through the numbers.
+    c.fillStyle = 'rgba(250, 249, 247, 0.9)';
+    c.fillRect(0, 0, VIEW_W, pending.length > 0 ? 112 : 80);
     c.textBaseline = 'middle';
     c.textAlign = 'left';
     c.fillStyle = COLOR.ink;

@@ -78,6 +78,14 @@ describe('lobby floor', () => {
       }
     });
 
+    it('lines the yard up on the left, under the shop machines', () => {
+      // The middle is a lane; things stand to either side of it.
+      const leftEdge = Math.max(
+        ...f.machines.filter((m) => m.kind !== 'pod').map((m) => m.x + MACHINE_HALF),
+      );
+      for (const s of f.yard) expect(s.x).toBeLessThanOrEqual(leftEdge);
+    });
+
     it('leaves a clear lane from where you appear to the START line', () => {
       expect(SPAWN_Y).toBeLessThan(START_Y - 200);
       expect(f.bottom).toBeLessThan(SPAWN_Y);

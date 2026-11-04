@@ -43,8 +43,16 @@ export class GameScene implements Scene {
     const { world, meta } = ctx;
 
     world.setCharacter(meta.selected);
-    // Before consumeUse, which can retire a character on its last run.
-    this.floor = buildLobbyFloor(meta);
+    const at = ctx.startAt;
+    ctx.startAt = null;
+
+    // Only a run you walked into from the lobby is drawn on the lobby floor.
+    // RUN AGAIN starts on a bare field: on the floor it looked exactly like
+    // the lobby, and a play-tester who landed there (the play button sits
+    // beside LOBBY) walked back among the machines thinking they were in the
+    // lobby - with the darkness coming up behind them.
+    // Built before consumeUse, which can retire a character on its last run.
+    this.floor = at === null ? null : buildLobbyFloor(meta);
     this.floorCurrent = meta.selected;
     // A pulled character is spent by playing, not by selecting - so this is
     // the moment the run actually costs one of its three uses.
@@ -52,9 +60,7 @@ export class GameScene implements Scene {
 
     // Walked in from the lobby: carry on from exactly where they crossed,
     // camera and all, so there is no cut. Otherwise (RUN AGAIN) the run
-    // starts on the line, as reset() already placed it.
-    const at = ctx.startAt;
-    ctx.startAt = null;
+    // starts where reset() placed it.
     if (at !== null) {
       world.player.x = at.x;
       world.player.y = at.y;
