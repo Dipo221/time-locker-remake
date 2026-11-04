@@ -830,21 +830,6 @@ export const ENEMIES: readonly EnemyDef[] = [
     },
   },
 
-  /** Blue "?" crate: the weapon source. */
-  {
-    id: 'crate.weapon',
-    colorRole: 'blue',
-    shape: 'block',
-    drawSize: 34,
-    hitboxRadius: 14,
-    hp: 2,
-    archetype: 'drift',
-    speed: 28,
-    scoreValue: 5,
-    drop: 'weapon',
-    minScore: 0,
-    spawnWeight: 20,
-  },
   /** Green carrier: the coin source. */
   {
     id: 'carrier.coin',

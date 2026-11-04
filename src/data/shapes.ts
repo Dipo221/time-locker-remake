@@ -124,7 +124,7 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
     ],
   },
 
-  /** The blue "?" crate that carries a weapon. */
+  /** A dropped weapon, and the vertical turret's housing. */
   block: {
     parts: [
       { kind: 'rect', x: -0.4, y: -0.4, w: 0.8, h: 0.8, fill: 'body' },

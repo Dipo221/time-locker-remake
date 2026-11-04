@@ -58,7 +58,7 @@ export const PARTICLE_COLORS: readonly string[] = [
   '#f08a1e', // orange
   '#8b4bd8', // purple
   '#2eb872', // green
-  '#2b6cf6', // blue crates
+  '#2b6cf6', // blue weapon carriers
   '#1e2024', // the player
   '#b9b4aa', // obstacles
 ];

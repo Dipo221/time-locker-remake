@@ -26,6 +26,7 @@ import {
   OBSTACLE_PASSAGE,
   VIEW_H,
   VIEW_W,
+  WEAPON_CARRIER_WEIGHT,
   WORLD_W,
 } from '../config';
 import { DEG } from '../core/math';
@@ -34,6 +35,7 @@ import { BOSSES } from '../data/bosses';
 import type { EnemyDef } from '../data/enemies';
 import { ENEMIES } from '../data/enemies';
 import { OBSTACLE_KINDS, greenVariant } from '../data/obstacles';
+import type { Enemy } from './entities/Enemy';
 import { applyDef } from './entities/Enemy';
 import type { World } from './World';
 
@@ -41,6 +43,15 @@ type Side = 0 | 1 | 2 | 3; // top, left, right, bottom
 
 /** Obstacles keep clear of the side walls, so you can always pass along one. */
 const PLAY_EDGE = 70;
+
+/**
+ * Whether a group of this type may include the weapon carrier. Not an air
+ * unit, which only homing can reach - a weapon you mostly cannot get at is a
+ * weapon withheld - and not something that already carries a drop.
+ */
+function canCarry(def: EnemyDef): boolean {
+  return def.flying !== true && def.drop === 'none';
+}
 
 function countSolids(w: World): number {
   let n = 0;
@@ -72,6 +83,17 @@ export class SpawnDirector {
    * enemy spawn whenever the player's pace changed by a hair.
    */
   private readonly obstacleRng = new Rng();
+  /** Total spawn weight of the last roll, for the weapon-carrier odds. */
+  private rolledWeight = 0;
+  /**
+   * A weapon carrier is due. Owed rather than rolled per group, so a roll
+   * that lands on a type that cannot carry one (a helicopter, say) hands it
+   * to the next group instead of losing it - which is what keeps the drop
+   * rate equal to the old crate's.
+   */
+  private carrierOwed = false;
+  /** Scratch: the members of the group being spawned. */
+  private readonly group: Enemy[] = [];
   /** Scratch for cluster layout; reused so a cluster allocates nothing. */
   private readonly placed: { x: number; y: number; half: number }[] = [];
 
@@ -80,6 +102,7 @@ export class SpawnDirector {
     this.lastBossId = '';
     this.nextObstacleY = OBSTACLE_FIRST_Y;
     this.obstacleRng.reseed(seed ^ 0x5bd1e995);
+    this.carrierOwed = false;
   }
 
   interval(score: number): number {
@@ -142,6 +165,9 @@ export class SpawnDirector {
 
     const def = this.roll(w.score, w.rng);
     if (def === null) return;
+
+    const odds = WEAPON_CARRIER_WEIGHT / (this.rolledWeight + WEAPON_CARRIER_WEIGHT);
+    if (w.rng.next() < odds) this.carrierOwed = true;
 
     this.spawn(w, def, room);
   }
@@ -210,7 +236,7 @@ export class SpawnDirector {
 
   /**
    * How many of this type arrive together. Flocking types also grow with
-   * score; lone types (bears, crates) stay lone however far you get, because
+   * score; lone types (bears, carriers) stay lone however far you get, because
    * a wall of bears is not a difficulty curve, it is a brick wall.
    */
   private groupSize(def: EnemyDef, score: number, rng: Rng): number {
@@ -273,6 +299,8 @@ export class SpawnDirector {
       this.weights.push(e.spawnWeight);
     }
     if (pool.length === 0) return null;
+    this.rolledWeight = 0;
+    for (const x of this.weights) this.rolledWeight += x;
     const i = rng.weighted(this.weights);
     return i < 0 ? null : pool[i];
   }
@@ -331,7 +359,7 @@ export class SpawnDirector {
     const jitter = (rng.next() - 0.5) * 2 * SPAWN_AIM_JITTER_DEG * DEG;
     let heading: number;
     if (def.archetype === 'drift') {
-      heading = -Math.PI / 2 + (rng.next() - 0.5) * 0.5; // crates drift downward
+      heading = -Math.PI / 2 + (rng.next() - 0.5) * 0.5; // carriers drift downward
     } else if (def.archetype === 'turret') {
       // Turrets never move, and their firing axis is read off the heading, so
       // it is pinned to +Y: the vertical turret's 0/180 then fires up and
@@ -344,6 +372,8 @@ export class SpawnDirector {
     // Lay the group out in a row ACROSS the direction of travel, so it reads
     // as an advancing line rather than a single-file queue.
     const n = Math.min(this.groupSize(def, w.score, rng), room);
+    const group = this.group;
+    group.length = 0;
     const spacing = def.drawSize * 1.45;
     const perpX = -Math.sin(heading);
     const perpY = Math.cos(heading);
@@ -379,6 +409,17 @@ export class SpawnDirector {
       if (def.weapon !== undefined) {
         e.fireCooldown += rng.next() * def.weapon.cadence * 0.7;
       }
+      group.push(e);
+    }
+
+    // One member turns blue and carries a weapon: the blue bird in the
+    // flock. It keeps its kind's shape and movement, so it is found by
+    // colour alone - exactly how the original teaches it.
+    if (this.carrierOwed && canCarry(def) && group.length > 0) {
+      const c = group[rng.int(group.length)];
+      c.colorRole = 'blue';
+      c.drop = 'weapon';
+      this.carrierOwed = false;
     }
   }
 }

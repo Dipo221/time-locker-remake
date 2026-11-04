@@ -256,7 +256,7 @@ export const BOSS_MAX_CONCURRENT = 3;
  * because score and player damage do NOT grow together: over one run, between
  * t=40s and t=280s score grew 12.4x while the player's damage grew only 2.7x.
  * Score accelerates with enemy density; damage only grows as fast as weapon
- * crates can be collected, which plateaus. Scaling health on the square root
+ * carriers can be shot down, which plateaus. Scaling health on the square root
  * tracks the damage curve instead, keeping fights roughly constant in length
  * for the whole run.
  *
@@ -354,6 +354,16 @@ export const FREE_COINS_PER_RUN = 8;
 export const DEATH_SLOWMO = 0.1;
 export const DEATH_HOLD_SEC = 1.1;
 export const DEATH_PARTICLES = 90;
+
+// ----------------------------------------------------- WEAPON CARRIERS
+/**
+ * Weapons come from a blue member of an ordinary group - one blue bird in a
+ * flock - as in the original, not from a crate of their own. This is the
+ * crate's old spawn weight, rolled alongside each spawn, so weapons arrive
+ * exactly as often as they did: about one roll in five at the start of a
+ * run, falling to one in twenty as the roster fills out.
+ */
+export const WEAPON_CARRIER_WEIGHT = 20;
 
 // ---------------------------------------------------------- OBSTACLES
 /**
