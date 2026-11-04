@@ -327,7 +327,9 @@ function drawPlayerShots(
  * enemy fire with their own" was a specific, named failure of the original and
  * one differentiator is not enough in a dense screen:
  *
- *   1. Hue      - one hot warning colour, reserved; nothing else uses it.
+ *   1. Hue      - one hot warning colour that nothing of the player's comes
+ *                 near. Chasers and bosses share it, as in the original, so
+ *                 against THEM the other three do the work.
  *   2. Shape    - radially symmetric, so it reads "incoming from anywhere"
  *                 rather than "going somewhere".
  *   3. Ring     - a white separator plus an outer ring, so it stays legible

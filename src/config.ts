@@ -380,20 +380,27 @@ export const COLOR = {
   /** The UI accent, and explosive player fire. See SHOT_COLORS. */
   playerShot: '#2b6cf6',
   playerShotEdge: '#133b8f',
-  /** Enemy fire: one hot warning colour. Nothing else may come near this hue. */
+  /**
+   * Enemy fire: the hot warning colour. Nothing of the PLAYER'S may come near
+   * this hue; the enemies that chase you and the bosses share it, as in the
+   * original, and the bullets stay apart from them by their ring, round shape
+   * and pulse (see drawEnemyShots).
+   */
   enemyShot: '#ff3b1f',
   enemyShotEdge: '#8d1300',
   freeze: '#7fd4ff',
   enemyBlack: '#262a30',
-  enemyOrange: '#f08a1e',
+  /** The chasers: the original's bright orange-red, the same danger colour as
+   * enemy fire. The role keeps its old name. */
+  enemyOrange: '#ff4a1c',
   enemyPurple: '#8b4bd8',
   enemyGreen: '#2eb872',
   /**
-   * Bosses read by silhouette and sheer size, so this stays dark and stays
-   * well clear of the reserved enemy-fire hue - a boss the same colour as the
-   * bullets would undo the legibility work.
+   * Bright orange-red, as in the original. A boss fires from inside its own
+   * body in the same hue, which is why every enemy shot carries a white
+   * separator ring: without it a fresh bullet would vanish into the boss.
    */
-  boss: '#241a2e',
+  boss: '#ff4a1c',
   pickup: '#2b6cf6',
   darkness: '#06070a',
   hud: '#1e2024',

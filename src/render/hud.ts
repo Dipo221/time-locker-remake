@@ -136,15 +136,16 @@ export function drawBossBar(vp: Viewport, w: World): void {
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
-  ctx.fillStyle = COLOR.boss;
+  // The name in ink: orange-red text on the near-white field reads poorly.
+  ctx.fillStyle = COLOR.hud;
   ctx.font = '700 17px ui-sans-serif, system-ui, sans-serif';
   ctx.fillText(name, x, y - 5);
 
-  ctx.fillStyle = 'rgba(36, 26, 46, 0.14)';
+  ctx.fillStyle = 'rgba(30, 32, 36, 0.10)';
   ctx.fillRect(x, y, barW, barH);
   ctx.fillStyle = COLOR.boss;
   ctx.fillRect(x, y, barW * frac, barH);
-  ctx.strokeStyle = 'rgba(36, 26, 46, 0.35)';
+  ctx.strokeStyle = 'rgba(30, 32, 36, 0.3)';
   ctx.lineWidth = 1.5;
   ctx.strokeRect(x, y, barW, barH);
 }

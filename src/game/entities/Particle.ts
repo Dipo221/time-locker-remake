@@ -53,6 +53,8 @@ export function resetParticle(p: Particle): void {
 /** Draw colours, indexed by Particle.colorIndex. Never the enemy-fire hue. */
 export const PARTICLE_COLORS: readonly string[] = [
   '#262a30', // black enemies
+  // Softer than the chasers' own orange-red on purpose: shards in the
+  // enemy-fire hue would read as incoming bullets.
   '#f08a1e', // orange
   '#8b4bd8', // purple
   '#2eb872', // green
