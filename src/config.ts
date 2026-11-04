@@ -337,12 +337,20 @@ export const POD_UNLOCK_SCORES: readonly number[] = Array.from(
 );
 
 /**
- * Weapons bought before a run start already in the loadout. The original
- * allows three purchases of ordinary weapons per play, so the shop offers
- * three slots and each can be taken once.
+ * The weapon machine in the lobby: a random weapon, as the original's is,
+ * drawn with the same rarities as drops in a run. The original charges 20.
+ * Here a typical early run banks 25-60 coins, so 25 is about one weapon a
+ * run - cheaper than the old 70-coin pick-one shop because you do not get to
+ * choose.
  */
-export const SHOP_SLOTS = 3;
-export const SHOP_WEAPON_COST = 70;
+export const WEAPON_MACHINE_COST = 25;
+/**
+ * Seconds you must stay pressed against a machine before it takes your coins.
+ * The original charges on touch, which in a lobby you walk around in means
+ * paying for things you brushed past - at 800 coins for KEEP FOREVER, that
+ * is not an accident anyone forgives.
+ */
+export const LOBBY_HOLD_SEC = 0.7;
 /**
  * A free handful before each run, as the original's coin box gives. Small on
  * purpose: it is a consolation after a bad run, not an income stream. At 15 it
@@ -451,6 +459,17 @@ export const COLOR = {
   pauseScore: '#e3262d',
   /** The original's teal for secondary buttons (the settings gear). */
   uiTeal: '#1aa0c0',
+  /** Lobby machines, after the original's: orange for characters, blue for weapons. */
+  podMachine: '#f5821f',
+  podMachineSide: '#b5560b',
+  weaponMachine: '#2a8fd0',
+  weaponMachineSide: '#155f94',
+  pedestal: '#d9a514',
+  pedestalSide: '#8f6a00',
+  lockedMachine: '#d3cfc7',
+  lockedMachineSide: '#aaa59b',
+  /** Characters waiting in the lobby yard: yours, but not the one you are. */
+  lobbyIdle: '#5d6472',
 } as const;
 
 /**

@@ -1,3 +1,4 @@
+import { VIEW_H, VIEW_W } from '../config';
 import { CHARACTERS } from '../data/characters';
 import type { UiRect } from '../core/input';
 import { DebugOverlay, drawHint } from '../render/debugOverlay';
@@ -14,6 +15,8 @@ import {
   drawPauseButton,
   drawPauseScreen,
 } from '../render/hud';
+import { buildLobbyFloor, drawLobbyFloor, drawLobbyLabels } from './lobbyFloor';
+import type { LobbyFloor } from './lobbyFloor';
 import type { Scene, SceneCtx } from './scene';
 
 /**
@@ -26,6 +29,12 @@ export class GameScene implements Scene {
   readonly overlay = new DebugOverlay();
 
   private paused = false;
+  /**
+   * The lobby floor the run sets off from, and who you were there. Drawn
+   * under the run, so the machines are still behind you as you leave.
+   */
+  private floor: LobbyFloor | null = null;
+  private floorCurrent = '';
   /** The gear's settings menu, open over the pause screen. */
   private menuOpen = false;
   private hinted = true;
@@ -34,9 +43,25 @@ export class GameScene implements Scene {
     const { world, meta } = ctx;
 
     world.setCharacter(meta.selected);
+    // Before consumeUse, which can retire a character on its last run.
+    this.floor = buildLobbyFloor(meta);
+    this.floorCurrent = meta.selected;
     // A pulled character is spent by playing, not by selecting - so this is
     // the moment the run actually costs one of its three uses.
     meta.consumeUse(meta.selected);
+
+    // Walked in from the lobby: carry on from exactly where they crossed,
+    // camera and all, so there is no cut. Otherwise (RUN AGAIN) the run
+    // starts on the line, as reset() already placed it.
+    const at = ctx.startAt;
+    ctx.startAt = null;
+    if (at !== null) {
+      world.player.x = at.x;
+      world.player.y = at.y;
+      world.camera.x = at.camX;
+      world.camera.y = at.camY;
+      world.darkness.reset(at.y);
+    }
 
     // The character's own freebies first, then anything bought in the lobby.
     const def = CHARACTERS[meta.selected];
@@ -45,7 +70,9 @@ export class GameScene implements Scene {
     ctx.pending = [];
 
     this.paused = false;
-    this.hinted = true;
+    // Walking in from the lobby, you already know how to move: the lobby
+    // taught it. The hint is for a run that starts cold.
+    this.hinted = at === null;
     ctx.tsc.kill();
     this.syncRects(ctx);
   }
@@ -138,7 +165,21 @@ export class GameScene implements Scene {
 
   render(ctx: SceneCtx): void {
     const { vp, world, clock, tsc, meta } = ctx;
-    drawWorld(vp, world, clock);
+    const floor = this.floor;
+    const current = this.floorCurrent;
+    drawWorld(vp, world, clock, null, floor === null ? null : (c) => drawLobbyFloor(c, floor, current));
+    // The floor's lettering, while any of it is still in view and above the
+    // darkness. Clipped to the play rect like the world.
+    if (floor !== null && world.camera.y - VIEW_H / 2 < 200) {
+      const c = vp.ctx;
+      c.save();
+      vp.applyUi();
+      c.beginPath();
+      c.rect(0, 0, VIEW_W, VIEW_H);
+      c.clip();
+      drawLobbyLabels(c, floor, meta, current, world.camera.x, world.camera.y, world.darkness.y);
+      c.restore();
+    }
 
     if (this.paused) {
       drawPauseScreen(vp, world, meta.highScore, this.menuOpen);

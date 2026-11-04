@@ -1,82 +1,139 @@
 import {
   COLOR,
   FREE_COINS_PER_RUN,
+  LOBBY_HOLD_SEC,
+  PLAYER_MAX_SPEED,
+  PLAYER_OUTLINE_PX,
+  PLAYER_SOLID_RADIUS_FRAC,
+  PLAY_MARGIN,
   POD_PERMANENT_COST,
   POD_PULL_COST,
-  PLAYER_OUTLINE_PX,
   POD_PULL_USES,
-  SHOP_SLOTS,
-  SHOP_WEAPON_COST,
   VIEW_H,
   VIEW_W,
+  WEAPON_MACHINE_COST,
+  WORLD_W,
 } from '../config';
 import type { UiRect } from '../core/input';
-import { CHARACTERS, MAX_POD, charactersInPod } from '../data/characters';
-import { DRONES, DRONE_IDS } from '../data/drones';
-import { PROJECTILE_WEAPON_IDS, WEAPONS } from '../data/weapons';
-import type { WeaponId } from '../game/weapons/types';
-import { drawButton, label, mono, roundRect } from '../render/ui';
-import { drawShape } from '../render/drawWorld';
+import { clamp, len } from '../core/math';
+import { CHARACTERS, charactersInPod } from '../data/characters';
+import { DRONES } from '../data/drones';
+import { WEAPONS } from '../data/weapons';
+import { Camera } from '../game/Camera';
 import { saveMeta } from '../game/MetaState';
+import type { MetaState } from '../game/MetaState';
+import { createPlayer } from '../game/entities/Player';
+import { pushCircleOutOfBox } from '../game/systems/playerSystem';
+import { rollWeapon } from '../game/weaponDrops';
+import type { WeaponId } from '../game/weapons/types';
+import { drawGround, drawShape } from '../render/drawWorld';
+import { gear } from '../render/hud';
+import { roundRect } from '../render/ui';
+import { drawWeaponIcon } from '../render/weaponIcon';
+import {
+  MACHINE_HALF,
+  SPAWN_X,
+  SPAWN_Y,
+  START_Y,
+  buildLobbyFloor,
+  drawLobbyFloor,
+  drawLobbyLabels,
+  usesBadge,
+} from './lobbyFloor';
+import type { LobbyFloor, Machine } from './lobbyFloor';
 import { SavePanel } from './savePanel';
 import type { Scene, SceneCtx } from './scene';
 
-const R = (id: string, x: number, y: number, w: number, h: number): UiRect => ({
-  id,
-  x,
-  y,
-  w,
-  h,
-});
+const GEAR: UiRect = { id: 'gear', x: 24, y: 880, w: 104, h: 60 };
+const SAVE: UiRect = { id: 'save', x: 140, y: 880, w: 104, h: 60 };
+/** While the help card is up, any tap closes it. */
+const HELP_CLOSE: UiRect = { id: 'helpClose', x: 0, y: 0, w: VIEW_W, h: VIEW_H };
 
-const PREV_CHAR = R('prevChar', 18, 236, 54, 96);
-const NEXT_CHAR = R('nextChar', VIEW_W - 72, 236, 54, 96);
-const BUY_PERM = R('buyPerm', 110, 404, VIEW_W - 220, 46);
-const PREV_POD = R('prevPod', 24, 492, 50, 46);
-const NEXT_POD = R('nextPod', 150, 492, 50, 46);
-const PULL = R('pull', 220, 486, VIEW_W - 244, 58);
-const SHOP: UiRect[] = Array.from({ length: SHOP_SLOTS }, (_, i) =>
-  R(`shop${i}`, 24 + i * ((VIEW_W - 48) / SHOP_SLOTS), 622, (VIEW_W - 48) / SHOP_SLOTS - 10, 74),
-);
-const START = R('start', 60, VIEW_H - 150, VIEW_W - 120, 76);
-const SAVE = R('save', 16, 20, 72, 38);
+/** How close you must be to a waiting character to become it. */
+const SWITCH_REACH = 20;
+/** Pressed against a machine: within this of its face. */
+const TOUCH_GAP = 6;
+/** Beyond touching, how near a POD machine's face shows what is inside. */
+const PREVIEW_REACH = 14;
 
-const ALL_SHOP_IDS: WeaponId[] = [...PROJECTILE_WEAPON_IDS, ...DRONE_IDS];
+const HEAVY = 'italic 900';
+const SANS = 'ui-sans-serif, system-ui, sans-serif';
+const MONO = 'ui-monospace, Menlo, Consolas, monospace';
+
+/** Which machine this is, stable across rebuilds of the floor. */
+function machineKey(m: Machine): string {
+  return `${m.kind}:${m.pod}`;
+}
 
 function weaponName(id: WeaponId): string {
   const w = (WEAPONS as Record<string, { name: string } | undefined>)[id];
   if (w !== undefined) return w.name;
-  const d = (DRONES as Record<string, { name: string } | undefined>)[id];
-  return d?.name ?? id;
+  return (DRONES as Record<string, { name: string } | undefined>)[id]?.name ?? id;
 }
 
 /**
- * The pre-run screen: pick a character, feed the vending machine, buy a
- * weapon or two, and set off.
+ * The lobby, after the original's: you walk about in it as the character
+ * you will play.
  *
- * Everything here is canvas-drawn and tapped through the same UiRect zones
- * the pause button uses, so a press on a button never also starts a drag.
+ *   - Walk into a waiting character to become it. Free and reversible, so it
+ *     happens on touch.
+ *   - Lean on a machine to buy from it. That costs coins, so it waits for
+ *     LOBBY_HOLD_SEC of contact - a ring fills - and stepping away cancels.
+ *     After a purchase you must step off before it will sell again.
+ *   - Walk over the START line to begin. The run picks up exactly where you
+ *     are standing (see SceneCtx.startAt).
+ *
+ * Near a POD machine a card shows what is inside: kept characters in full,
+ * ones still to find as "?" - the original never said what a machine held.
  */
 export class LobbyScene implements Scene {
   readonly id = 'lobby' as const;
 
-  private pod = 1;
-  private offers: WeaponId[] = [];
-  private bought: boolean[] = [];
-  /** Flash message after a pull, so the player sees what they got. */
-  private toast = '';
-  private toastFor = 0;
+  private floor: LobbyFloor = { machines: [], yard: [], bottom: -1000 };
+  private readonly player = createPlayer();
+  private readonly camera = new Camera();
   private readonly savePanel = new SavePanel();
+  private helpOpen = false;
+
+  /**
+   * The machine being leaned on, and how far its purchase has got (0..1).
+   * Machines are tracked by KEY, not by object: a purchase rebuilds the
+   * floor, and a fresh object for the same machine must still count as the
+   * one just bought from - otherwise standing still against a POD pulled
+   * from it again every LOBBY_HOLD_SEC until the coins ran out.
+   */
+  private holdOn: string | null = null;
+  private hold = 0;
+  /** Bought from last; must be stepped off before it sells again. */
+  private spent: string | null = null;
+  /** The waiting character being touched; a switch fires on arrival only. */
+  private touching: string | null = null;
+  /** What the machine being leaned on would say: a price, a lock, a shortfall. */
+  private status = '';
+
+  private toast = '';
+  private toastSub = '';
+  private toastFor = 0;
 
   enter(ctx: SceneCtx): void {
     // The original hands out a small free amount before every run.
     ctx.meta.coins += FREE_COINS_PER_RUN;
+    saveMeta(ctx.meta);
 
-    this.pod = Math.min(this.pod, ctx.meta.podsAvailable());
-    this.rollOffers(ctx);
     ctx.pending = [];
-    this.toast = '';
+    this.floor = buildLobbyFloor(ctx.meta);
+    this.become(ctx.meta.selected);
+    this.player.x = SPAWN_X;
+    this.player.y = SPAWN_Y;
+    this.camera.reset(this.player.x, this.player.y);
+
+    this.holdOn = null;
+    this.hold = 0;
+    this.spent = null;
+    this.touching = null;
+    this.status = '';
     this.toastFor = 0;
+    this.helpOpen = false;
     this.syncRects(ctx);
   }
 
@@ -85,285 +142,432 @@ export class LobbyScene implements Scene {
     ctx.input.setUiRects([]);
   }
 
-  private rollOffers(ctx: SceneCtx): void {
-    this.offers = [];
-    this.bought = [];
-    const pool = [...ALL_SHOP_IDS];
-    for (let i = 0; i < SHOP_SLOTS && pool.length > 0; i++) {
-      const k = ctx.rng.int(pool.length);
-      const picked = pool.splice(k, 1)[0];
-      if (picked !== undefined) {
-        this.offers.push(picked);
-        this.bought.push(false);
-      }
-    }
+  private syncRects(ctx: SceneCtx): void {
+    ctx.input.setUiRects(this.helpOpen ? [HELP_CLOSE] : [GEAR, SAVE]);
   }
 
-  private syncRects(ctx: SceneCtx): void {
-    ctx.input.setUiRects([
-      PREV_CHAR,
-      NEXT_CHAR,
-      BUY_PERM,
-      PREV_POD,
-      NEXT_POD,
-      PULL,
-      ...SHOP,
-      START,
-      SAVE,
-    ]);
+  /** Take on a character's body: its shape, size and handling. */
+  private become(id: string): void {
+    const def = CHARACTERS[id];
+    if (def === undefined) return;
+    const p = this.player;
+    p.shape = def.shape;
+    p.drawSize = def.drawSize;
+    p.hitboxRadius = def.hitboxRadius;
+    p.dragGain = def.dragGain;
+  }
+
+  private switchTo(ctx: SceneCtx, id: string): void {
+    const def = CHARACTERS[id];
+    if (def === undefined) return;
+    ctx.meta.selected = id;
+    this.become(id);
+    saveMeta(ctx.meta);
+    this.say(def.name, `${def.blurb ?? ''}${def.blurb ? '  ·  ' : ''}HITBOX ${def.hitboxRadius}`);
+  }
+
+  private say(title: string, sub = ''): void {
+    this.toast = title;
+    this.toastSub = sub;
+    this.toastFor = 2.6;
   }
 
   update(ctx: SceneCtx, realDt: number): void {
+    const { input, meta, clock } = ctx;
     if (this.toastFor > 0) this.toastFor -= realDt;
 
-    const tap = ctx.input.consumeTap();
-    if (tap === null || this.savePanel.isOpen) return;
-    const meta = ctx.meta;
-    let dirty = true;
+    // The camera runs on the real clock, like the player's body in a run.
+    clock.advance(realDt, 0);
+    const frame = input.beginFrame(realDt);
+    input.consumeCancel();
+    const tap = input.consumeTap();
 
-    if (tap === 'prevChar' || tap === 'nextChar') {
-      const ids = meta.ownedIds();
-      const i = Math.max(0, ids.indexOf(meta.selected));
-      const step = tap === 'nextChar' ? 1 : -1;
-      meta.selected = ids[(i + step + ids.length) % ids.length] ?? meta.selected;
-    } else if (tap === 'prevPod') {
-      this.pod = Math.max(1, this.pod - 1);
-    } else if (tap === 'nextPod') {
-      this.pod = Math.min(meta.podsAvailable(), this.pod + 1);
-    } else if (tap === 'pull') {
-      const got = meta.pull(this.pod, ctx.rng);
-      if (got !== null) {
-        const c = CHARACTERS[got];
-        this.toast = `${c?.name ?? got}  +${POD_PULL_USES} RUNS`;
-        this.toastFor = 2.5;
-        meta.selected = got;
+    if (this.helpOpen) {
+      if (tap === 'helpClose') {
+        this.helpOpen = false;
+        this.syncRects(ctx);
       }
-    } else if (tap === 'buyPerm') {
-      if (meta.buyPermanent(meta.selected)) {
-        this.toast = 'UNLOCKED PERMANENTLY';
-        this.toastFor = 2.5;
-      }
-    } else if (tap.startsWith('shop')) {
-      const i = Number(tap.slice(4));
-      const id = this.offers[i];
-      if (
-        id !== undefined &&
-        this.bought[i] === false &&
-        meta.coins >= SHOP_WEAPON_COST
-      ) {
-        meta.coins -= SHOP_WEAPON_COST;
-        this.bought[i] = true;
-        ctx.pending.push(id);
-      }
-    } else if (tap === 'start') {
-      ctx.go('game');
-    } else if (tap === 'save') {
-      dirty = false;
+      return;
+    }
+    if (this.savePanel.isOpen) return;
+    if (tap === 'gear') {
+      this.helpOpen = true;
+      this.syncRects(ctx);
+      return;
+    }
+    if (tap === 'save') {
       this.savePanel.open(meta, () => {
-        // A loaded save may have fewer PODs open than the one it replaced.
-        this.pod = Math.min(this.pod, meta.podsAvailable());
+        this.floor = buildLobbyFloor(meta);
+        this.become(meta.selected);
       });
-    } else {
-      dirty = false;
+      return;
     }
 
-    if (dirty) saveMeta(meta);
+    // ---- walk ---------------------------------------------------------------
+    const p = this.player;
+    if (frame.holding) {
+      let dx = frame.dx * p.dragGain;
+      let dy = frame.dy * p.dragGain;
+      const step = len(dx, dy);
+      const max = PLAYER_MAX_SPEED * realDt;
+      if (step > max && step > 0) {
+        dx *= max / step;
+        dy *= max / step;
+      }
+      p.x += dx;
+      p.y += dy;
+    }
+    const r = p.drawSize * PLAYER_SOLID_RADIUS_FRAC;
+    for (const m of this.floor.machines) pushCircleOutOfBox(p, m.x, m.y, MACHINE_HALF, r);
+    p.x = clamp(p.x, PLAY_MARGIN, WORLD_W - PLAY_MARGIN);
+    p.y = Math.max(p.y, this.floor.bottom);
+
+    this.camera.follow(p.y, -Infinity, clock.real);
+    this.camera.followX(p.x, clock.real);
+
+    // ---- over the line: the run begins right here ----------------------------
+    if (p.y >= START_Y) {
+      saveMeta(meta);
+      ctx.startAt = { x: p.x, y: p.y, camX: this.camera.x, camY: this.camera.y };
+      ctx.go('game');
+      return;
+    }
+
+    // ---- walk into a character to become it ---------------------------------
+    let touched: string | null = null;
+    for (const s of this.floor.yard) {
+      if (s.id === meta.selected) continue;
+      if (len(s.x - p.x, s.y - p.y) <= r + SWITCH_REACH) {
+        touched = s.id;
+        break;
+      }
+    }
+    if (touched !== null && touched !== this.touching) this.switchTo(ctx, touched);
+    this.touching = touched;
+
+    // ---- lean on a machine to buy ------------------------------------------
+    let on: Machine | null = null;
+    for (const m of this.floor.machines) {
+      const gx = Math.max(Math.abs(p.x - m.x) - MACHINE_HALF, 0);
+      const gy = Math.max(Math.abs(p.y - m.y) - MACHINE_HALF, 0);
+      if (len(gx, gy) <= r + TOUCH_GAP) {
+        on = m;
+        break;
+      }
+    }
+    const key = on === null ? null : machineKey(on);
+    if (key !== this.holdOn) this.hold = 0;
+    this.holdOn = key;
+    if (this.spent !== null && this.spent !== key) this.spent = null;
+
+    this.status = '';
+    if (on !== null) {
+      const [ok, msg] = this.offer(meta, on);
+      this.status = this.spent === key ? 'STEP OFF AND BACK TO BUY AGAIN' : msg;
+      if (ok && this.spent !== key) {
+        this.hold += realDt / LOBBY_HOLD_SEC;
+        if (this.hold >= 1) {
+          this.hold = 0;
+          this.spent = key;
+          this.buy(ctx, on);
+        }
+      } else {
+        this.hold = 0;
+      }
+    }
   }
 
+  /** Whether a machine will sell right now, and what it says either way. */
+  private offer(meta: MetaState, m: Machine): [boolean, string] {
+    const short = (cost: number): string => `NEED ${cost - meta.coins} MORE COINS`;
+    if (m.kind === 'pod') {
+      if (m.locked) return [false, `OPENS AT ${m.unlockAt} TOTAL SCORE  (${meta.totalScore} SO FAR)`];
+      if (meta.coins < POD_PULL_COST) return [false, short(POD_PULL_COST)];
+      return [true, `HOLD TO PULL FROM POD ${m.pod}`];
+    }
+    if (m.kind === 'weapon') {
+      if (meta.coins < WEAPON_MACHINE_COST) return [false, short(WEAPON_MACHINE_COST)];
+      return [true, 'HOLD FOR A RANDOM WEAPON FOR THE NEXT RUN'];
+    }
+    const name = CHARACTERS[meta.selected]?.name ?? '';
+    if (meta.isPermanent(meta.selected)) return [false, `${name} IS ALREADY YOURS FOR GOOD`];
+    if (meta.coins < POD_PERMANENT_COST) return [false, short(POD_PERMANENT_COST)];
+    return [true, `HOLD TO KEEP ${name} FOREVER`];
+  }
+
+  private buy(ctx: SceneCtx, m: Machine): void {
+    const { meta } = ctx;
+    if (m.kind === 'pod') {
+      const got = meta.pull(m.pod, ctx.rng);
+      if (got === null) return;
+      this.floor = buildLobbyFloor(meta);
+      // You come out of the machine as what you pulled, as in the original.
+      this.switchTo(ctx, got);
+      this.say(`${CHARACTERS[got]?.name ?? got}`, `+${POD_PULL_USES} RUNS  ·  from POD ${m.pod}`);
+    } else if (m.kind === 'weapon') {
+      meta.coins -= WEAPON_MACHINE_COST;
+      const id = rollWeapon(ctx.rng);
+      ctx.pending.push(id);
+      this.say(`+ ${weaponName(id)}`, 'ready for the next run');
+    } else if (meta.buyPermanent(meta.selected)) {
+      this.say(`${CHARACTERS[meta.selected]?.name ?? ''} IS YOURS`, 'kept forever');
+    }
+    saveMeta(meta);
+  }
+
+  // ------------------------------------------------------------------ render
   render(ctx: SceneCtx): void {
     const { vp, meta } = ctx;
     const c = vp.ctx;
+    const p = this.player;
 
     vp.applyDevice();
     c.fillStyle = COLOR.pageBg;
     c.fillRect(0, 0, vp.canvas.width, vp.canvas.height);
 
-    vp.applyUi();
     c.save();
+    vp.applyUi();
     c.beginPath();
     c.rect(0, 0, VIEW_W, VIEW_H);
     c.clip();
     c.fillStyle = COLOR.bg;
     c.fillRect(0, 0, VIEW_W, VIEW_H);
 
-    label(c, 'TIME LOCKER', VIEW_W / 2, 44, 34, COLOR.hud, 'center');
-    mono(c, 'FAN REMAKE', VIEW_W / 2, 72, 12, COLOR.hudDim, 'center');
-    drawButton(c, SAVE, { label: 'SAVE', fontSize: 15 });
-    mono(c, `BEST ${meta.highScore}`, 24, 96, 18, COLOR.hudDim);
-    mono(c, `COINS ${meta.coins}`, VIEW_W - 24, 96, 20, COLOR.playerShot, 'right');
+    vp.applyWorld(this.camera.x, this.camera.y);
+    drawGround(c, this.camera.y);
+    drawLobbyFloor(c, this.floor, meta.selected);
 
-    this.renderCharacter(ctx);
-    this.renderPod(ctx);
-    this.renderShop(ctx);
-    this.renderStats(ctx);
+    // The purchase ring fills round you while you lean on a machine.
+    if (this.hold > 0) {
+      c.strokeStyle = COLOR.playerShot;
+      c.lineWidth = 5;
+      c.beginPath();
+      c.arc(p.x, p.y, p.drawSize * 0.75, Math.PI / 2, Math.PI / 2 - this.hold * Math.PI * 2, true);
+      c.stroke();
+    }
+    drawShape(c, p.shape, p.x, p.y, p.drawSize, 0, COLOR.player, COLOR.bg, COLOR.ink, PLAYER_OUTLINE_PX);
 
-    drawButton(c, START, { label: 'START', primary: true, fontSize: 28 });
-    // Credit where it is due: this is a tribute, not the original.
-    label(
-      c,
-      'Fan remake of TIME LOCKER (Sotaro Otsuka, 2016). Not affiliated.',
-      VIEW_W / 2,
-      VIEW_H - 40,
-      11,
-      COLOR.hudDim,
-      'center',
+    vp.applyUi();
+    drawLobbyLabels(c, this.floor, meta, meta.selected, this.camera.x, this.camera.y, -Infinity);
+    if (!meta.isPermanent(meta.selected)) {
+      usesBadge(c, p.x - this.camera.x + 20, VIEW_H / 2 - (p.y - this.camera.y) - 22, meta.usesLeft(meta.selected));
+    }
+
+    this.renderHud(c, meta, ctx.pending);
+    this.renderPreview(c, meta);
+    this.renderMessages(c);
+    this.renderBar(c);
+    if (this.helpOpen) this.renderHelp(c);
+
+    c.restore();
+  }
+
+  private renderHud(c: CanvasRenderingContext2D, meta: MetaState, pending: readonly WeaponId[]): void {
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+    c.fillStyle = COLOR.ink;
+    c.font = `${HEAVY} 26px ${SANS}`;
+    c.fillText(`TOP ${meta.highScore}`, 22, 34);
+    c.fillStyle = COLOR.hudDim;
+    c.font = `600 13px ${MONO}`;
+    const next = meta.nextPodAt();
+    c.fillText(
+      next === null ? `TOTAL ${meta.totalScore}` : `TOTAL ${meta.totalScore}  ·  NEXT POD AT ${next}`,
+      22,
+      64,
     );
 
+    // Coins and their C badge, as in the original.
+    const bx = VIEW_W - 22 - 44;
+    c.fillStyle = COLOR.enemyGreen;
+    roundRect(c, bx, 14, 44, 44, 6);
+    c.fill();
+    c.fillStyle = '#ffffff';
+    c.textAlign = 'center';
+    c.font = `900 28px ${SANS}`;
+    c.fillText('C', bx + 22, 37);
+    c.fillStyle = COLOR.ink;
+    c.textAlign = 'right';
+    c.font = `${HEAVY} 42px ${SANS}`;
+    c.fillText(String(meta.coins), bx - 8, 38);
+
+    // What the weapon machine has given you for the coming run.
+    if (pending.length > 0) {
+      const counts = new Map<WeaponId, number>();
+      for (const id of pending) counts.set(id, (counts.get(id) ?? 0) + 1);
+      let x = VIEW_W - 22;
+      for (const [id, n] of [...counts].reverse()) {
+        const w = 58;
+        x -= w;
+        c.fillStyle = COLOR.ink;
+        roundRect(c, x, 72, w - 6, 32, 6);
+        c.fill();
+        drawWeaponIcon(c, id, x + 17, 88, 22, '#ffffff', COLOR.ink);
+        c.fillStyle = '#ffffff';
+        c.textAlign = 'right';
+        c.font = `${HEAVY} 18px ${SANS}`;
+        c.fillText(String(n), x + w - 12, 89);
+      }
+      c.fillStyle = COLOR.hudDim;
+      c.textAlign = 'right';
+      c.font = `600 11px ${MONO}`;
+      c.fillText('NEXT RUN', x - 8, 88);
+    }
+  }
+
+  /** What is inside the POD machine you are next to. */
+  private renderPreview(c: CanvasRenderingContext2D, meta: MetaState): void {
+    const p = this.player;
+    let near: Machine | null = null;
+    let best = p.drawSize * PLAYER_SOLID_RADIUS_FRAC + PREVIEW_REACH;
+    for (const m of this.floor.machines) {
+      if (m.kind !== 'pod') continue;
+      // Measured to the machine's face, not its centre: only when you are
+      // up against it, or nearly, so the card never covers the way ahead.
+      const gx = Math.max(Math.abs(p.x - m.x) - MACHINE_HALF, 0);
+      const gy = Math.max(Math.abs(p.y - m.y) - MACHINE_HALF, 0);
+      const d = len(gx, gy);
+      if (d < best) {
+        best = d;
+        near = m;
+      }
+    }
+    if (near === null) return;
+
+    const pool = charactersInPod(near.pod);
+    const kept = pool.filter((d) => meta.isPermanent(d.id)).length;
+    const x = 22;
+    const y = 120;
+    const w = VIEW_W - 44;
+    const h = 112;
+    c.fillStyle = 'rgba(250, 249, 247, 0.94)';
+    roundRect(c, x, y, w, h, 12);
+    c.fill();
+    c.strokeStyle = near.locked ? COLOR.frame : COLOR.podMachine;
+    c.lineWidth = 2;
+    c.stroke();
+
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+    c.fillStyle = COLOR.ink;
+    c.font = `${HEAVY} 20px ${SANS}`;
+    c.fillText(`POD ${near.pod}`, x + 14, y + 20);
+    c.fillStyle = COLOR.hudDim;
+    c.font = `600 12px ${MONO}`;
+    c.textAlign = 'right';
+    c.fillText(near.locked ? 'LOCKED' : `${kept}/${pool.length} KEPT FOREVER`, x + w - 14, y + 20);
+
+    const slot = Math.min(66, (w - 20) / Math.max(1, pool.length));
+    const x0 = x + w / 2 - (slot * pool.length) / 2 + slot / 2;
+    for (let i = 0; i < pool.length; i++) {
+      const d = pool[i];
+      const cx = x0 + i * slot;
+      const cy = y + 70;
+      const owned = !near.locked && meta.isOwned(d.id);
+      c.save();
+      c.translate(cx, cy);
+      c.scale(1, -1);
+      drawShape(c, d.shape, 0, 0, Math.min(46, d.drawSize), 0, owned ? COLOR.lobbyIdle : COLOR.frame, COLOR.bg);
+      c.restore();
+      if (!owned) {
+        c.fillStyle = COLOR.hudDim;
+        c.textAlign = 'center';
+        c.font = `${HEAVY} 22px ${SANS}`;
+        c.fillText('?', cx, cy + 2);
+      } else if (!meta.isPermanent(d.id)) {
+        usesBadge(c, cx + 16, cy - 16, meta.usesLeft(d.id));
+      }
+    }
+  }
+
+  private renderMessages(c: CanvasRenderingContext2D): void {
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
     if (this.toastFor > 0) {
       c.globalAlpha = Math.min(1, this.toastFor);
-      c.fillStyle = COLOR.playerShot;
-      roundRect(c, 60, 150, VIEW_W - 120, 40, 8);
+      c.fillStyle = COLOR.ink;
+      roundRect(c, 40, 250, VIEW_W - 80, this.toastSub ? 62 : 42, 12);
       c.fill();
-      label(c, this.toast, VIEW_W / 2, 170, 18, '#ffffff', 'center');
+      c.fillStyle = '#ffffff';
+      c.font = `${HEAVY} 20px ${SANS}`;
+      c.fillText(this.toast, VIEW_W / 2, 271);
+      if (this.toastSub) {
+        c.font = `500 12px ${SANS}`;
+        c.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        c.fillText(this.toastSub, VIEW_W / 2, 296, VIEW_W - 100);
+      }
       c.globalAlpha = 1;
     }
-
-    c.restore();
-  }
-
-  private renderCharacter(ctx: SceneCtx): void {
-    const { vp, meta } = ctx;
-    const c = vp.ctx;
-    const def = CHARACTERS[meta.selected];
-    if (def === undefined) return;
-
-    // The silhouette is drawn through the same shape pipeline the game uses,
-    // so the lobby can never show something the run does not.
-    c.save();
-    c.translate(VIEW_W / 2, 284);
-    c.scale(1, -1); // shapes are authored +Y forward; the UI pass is Y-down
-    // In your own colour, outlined as in play, so the lobby teaches what to
-    // look for on the field. The outline scales with the silhouette.
-    drawShape(
-      c,
-      def.shape,
-      0,
-      0,
-      120,
-      0,
-      COLOR.player,
-      COLOR.bg,
-      COLOR.ink,
-      (PLAYER_OUTLINE_PX * 120) / def.drawSize,
-    );
-    c.restore();
-
-    label(c, def.name, VIEW_W / 2, 352, 25, COLOR.hud, 'center');
-    if (def.blurb !== undefined) {
-      label(c, def.blurb, VIEW_W / 2, 378, 14, COLOR.hudDim, 'center');
-    }
-
-    drawButton(c, PREV_CHAR, { label: '<', fontSize: 26 });
-    drawButton(c, NEXT_CHAR, { label: '>', fontSize: 26 });
-
-    const permanent = meta.isPermanent(meta.selected);
-    if (permanent) {
-      drawButton(c, BUY_PERM, {
-        label: 'PERMANENT',
-        enabled: false,
-        fontSize: 17,
-      });
-    } else {
-      const left = meta.usesLeft(meta.selected);
-      drawButton(c, BUY_PERM, {
-        label: `KEEP FOREVER  ${POD_PERMANENT_COST}`,
-        sub: `${left} run${left === 1 ? '' : 's'} left`,
-        enabled: meta.canBuyPermanent(meta.selected),
-        fontSize: 17,
-      });
+    if (this.status !== '') {
+      c.font = `700 14px ${SANS}`;
+      const w = Math.min(VIEW_W - 40, c.measureText(this.status).width + 32);
+      c.fillStyle = 'rgba(30, 32, 36, 0.86)';
+      roundRect(c, VIEW_W / 2 - w / 2, 820, w, 40, 20);
+      c.fill();
+      c.fillStyle = '#ffffff';
+      c.fillText(this.status, VIEW_W / 2, 841, VIEW_W - 60);
     }
   }
 
-  /**
-   * What actually differentiates these characters, stated plainly.
-   *
-   * Hitbox size is the primary balance lever in the whole roster and is
-   * invisible - the silhouette is several times larger than the thing that
-   * kills you - so a player choosing between characters has no way to weigh
-   * it without being told.
-   */
-  private renderStats(ctx: SceneCtx): void {
-    const { vp, meta } = ctx;
-    const c = vp.ctx;
-    const def = CHARACTERS[meta.selected];
-    if (def === undefined) return;
-
-    const y = 736;
-    label(c, 'HITBOX', 24, y, 13, COLOR.hudDim);
-
-    // Scaled against the widest hitbox in the roster, so the bar is a
-    // comparison rather than an absolute nobody can interpret.
-    const widest = Math.max(
-      ...Object.values(CHARACTERS).map((d) => d.hitboxRadius),
-    );
-    const barW = 150;
-    const frac = def.hitboxRadius / widest;
-    c.fillStyle = 'rgba(30, 32, 36, 0.10)';
-    c.fillRect(96, y - 6, barW, 12);
-    c.fillStyle = frac <= 0.45 ? COLOR.enemyGreen : COLOR.playerShot;
-    c.fillRect(96, y - 6, barW * frac, 12);
-    mono(c, `${def.hitboxRadius}`, 96 + barW + 12, y, 13, COLOR.hudDim);
-
-    const kit: string[] = [];
-    if (def.innate.length === 0) kit.push('no gun');
-    for (const id of def.startWeapons ?? []) kit.push(weaponName(id));
-    label(
-      c,
-      kit.length > 0 ? `STARTS WITH  ${kit.join(', ')}` : 'STARTS WITH  its own gun',
-      24,
-      y + 28,
-      13,
-      COLOR.hudDim,
-    );
-  }
-
-  private renderPod(ctx: SceneCtx): void {
-    const { vp, meta } = ctx;
-    const c = vp.ctx;
-    const open = meta.podsAvailable();
-
-    mono(c, `POD ${this.pod}/${MAX_POD}`, 24, 476, 14, COLOR.hudDim);
-    drawButton(c, PREV_POD, { label: '<', enabled: this.pod > 1, fontSize: 20 });
-    drawButton(c, NEXT_POD, {
-      label: '>',
-      enabled: this.pod < open,
-      fontSize: 20,
-    });
-
-    const pool = charactersInPod(this.pod);
-    const havePerm = pool.filter((p) => meta.isPermanent(p.id)).length;
-    drawButton(c, PULL, {
-      label: `PULL  ${POD_PULL_COST}`,
-      sub: `${havePerm}/${pool.length} kept`,
-      enabled: meta.canPull(this.pod),
-      fontSize: 20,
-    });
-
-    const next = meta.nextPodAt();
-    const hint =
-      next === null
-        ? 'all machines open'
-        : `next machine at ${next} total score (${meta.totalScore})`;
-    label(c, hint, VIEW_W / 2, 566, 13, COLOR.hudDim, 'center');
-  }
-
-  private renderShop(ctx: SceneCtx): void {
-    const { vp, meta } = ctx;
-    const c = vp.ctx;
-
-    label(c, 'LOAD OUT BEFORE YOU GO', 24, 600, 14, COLOR.hudDim);
-
-    for (let i = 0; i < SHOP.length; i++) {
-      const id = this.offers[i];
-      const rect = SHOP[i];
-      if (id === undefined || rect === undefined) continue;
-      const taken = this.bought[i] === true;
-      drawButton(c, rect, {
-        label: weaponName(id),
-        sub: taken ? 'READY' : `${SHOP_WEAPON_COST}`,
-        enabled: !taken && meta.coins >= SHOP_WEAPON_COST,
-        fontSize: 13,
-      });
+  private renderBar(c: CanvasRenderingContext2D): void {
+    for (const b of [GEAR, SAVE]) {
+      c.fillStyle = COLOR.uiTeal;
+      roundRect(c, b.x, b.y, b.w, b.h, 12);
+      c.fill();
     }
+    gear(c, GEAR.x + GEAR.w / 2, GEAR.y + GEAR.h / 2, 18);
+    c.fillStyle = '#ffffff';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.font = `${HEAVY} 22px ${SANS}`;
+    c.fillText('SAVE', SAVE.x + SAVE.w / 2, SAVE.y + SAVE.h / 2 + 1);
+  }
+
+  /** The gear's card. Settings proper come later; for now, how to play. */
+  private renderHelp(c: CanvasRenderingContext2D): void {
+    c.fillStyle = 'rgba(20, 22, 26, 0.6)';
+    c.fillRect(0, 0, VIEW_W, VIEW_H);
+    const x = 36;
+    const y = 170;
+    const w = VIEW_W - 72;
+    const h = 600;
+    c.fillStyle = COLOR.bg;
+    roundRect(c, x, y, w, h, 14);
+    c.fill();
+
+    c.textAlign = 'left';
+    c.textBaseline = 'middle';
+    c.fillStyle = COLOR.ink;
+    c.font = `${HEAVY} 28px ${SANS}`;
+    c.fillText('HOW TO PLAY', x + 24, y + 42);
+
+    const lines: [string, string][] = [
+      ['Drag anywhere to move.', 'Your guns fire on their own.'],
+      ['Time moves only when you move.', 'Stop, and the whole world stops.'],
+      ['The darkness behind you never stops.', 'Keep going forward.'],
+      ['Touching an enemy or its fire ends the run.', 'Grey blocks only get in your way.'],
+      ['Blue enemies drop weapons.', 'Green ones, and green blocks, drop coins.'],
+      ['In here: walk into a character to be it.', 'Lean on a machine to buy from it.'],
+      ['Walk over the START line to begin.', ''],
+    ];
+    let ly = y + 96;
+    for (const [a, b] of lines) {
+      c.fillStyle = COLOR.ink;
+      c.font = `600 16px ${SANS}`;
+      c.fillText(a, x + 24, ly, w - 48);
+      if (b) {
+        c.fillStyle = '#55524c';
+        c.font = `400 14px ${SANS}`;
+        c.fillText(b, x + 24, ly + 22, w - 48);
+      }
+      ly += 62;
+    }
+
+    c.fillStyle = COLOR.hudDim;
+    c.font = `500 11px ${SANS}`;
+    c.textAlign = 'center';
+    c.fillText('Fan remake of TIME LOCKER (Sotaro Otsuka, 2016). Not affiliated.', VIEW_W / 2, y + h - 52);
+    c.font = `700 14px ${SANS}`;
+    c.fillText('TAP TO CLOSE', VIEW_W / 2, y + h - 24);
   }
 }

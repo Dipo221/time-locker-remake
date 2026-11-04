@@ -60,6 +60,7 @@ const ctx: SceneCtx = {
   world,
   rng,
   pending: [],
+  startAt: null,
   go(id: SceneId) {
     manager.request(id);
   },

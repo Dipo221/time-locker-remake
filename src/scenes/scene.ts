@@ -24,6 +24,12 @@ export interface SceneCtx {
   readonly rng: Rng;
   /** Weapons bought in the lobby, applied when the run starts. */
   pending: WeaponId[];
+  /**
+   * Set by the lobby when the player walks over the start line: the run
+   * picks up exactly there, camera and all, so crossing is seamless. Null
+   * otherwise (RUN AGAIN), and the run starts on the line.
+   */
+  startAt: { x: number; y: number; camX: number; camY: number } | null;
   go(id: SceneId): void;
 }
 

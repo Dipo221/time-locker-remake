@@ -81,30 +81,21 @@ export function pushOutOfSolids(p: Player, pool: Pool<Enemy>): void {
       const e = pool.active[i];
       if (!e.alive || !e.solid) continue;
 
-      const h = e.boxHalf;
+      if (e.boxHalf > 0) {
+        pushCircleOutOfBox(p, e.x, e.y, e.boxHalf, pr);
+        continue;
+      }
+
       const r = pr + e.hitboxRadius;
-      const cx = h > 0 ? clamp(p.x, e.x - h, e.x + h) : e.x;
-      const cy = h > 0 ? clamp(p.y, e.y - h, e.y + h) : e.y;
-      const dx = p.x - cx;
-      const dy = p.y - cy;
+      const dx = p.x - e.x;
+      const dy = p.y - e.y;
       const d2 = dx * dx + dy * dy;
       if (d2 >= r * r) continue;
 
       if (d2 > 1e-6) {
         const d = Math.sqrt(d2);
-        p.x = cx + (dx / d) * r;
-        p.y = cy + (dy / d) * r;
-      } else if (h > 0) {
-        // Centre inside the square: leave by whichever face is closest.
-        const l = p.x - (e.x - h);
-        const rt = e.x + h - p.x;
-        const dn = p.y - (e.y - h);
-        const up = e.y + h - p.y;
-        const m = Math.min(l, rt, dn, up);
-        if (m === dn) p.y = e.y - h - r;
-        else if (m === l) p.x = e.x - h - r;
-        else if (m === rt) p.x = e.x + h + r;
-        else p.y = e.y + h + r;
+        p.x = e.x + (dx / d) * r;
+        p.y = e.y + (dy / d) * r;
       } else {
         // Dead centre of a round one: back out toward the darkness, the one
         // direction that is always open.
@@ -113,6 +104,44 @@ export function pushOutOfSolids(p: Player, pool: Pool<Enemy>): void {
     }
     p.x = clamp(p.x, PLAY_MARGIN, WORLD_W - PLAY_MARGIN);
   }
+}
+
+/**
+ * Pushes a circle of radius `r` at `p` out of the square of half-size `h`
+ * centred on (cx, cy), to the nearest point outside it. Returns whether they
+ * overlapped. Shared by obstacles in a run and the machines in the lobby.
+ */
+export function pushCircleOutOfBox(
+  p: { x: number; y: number },
+  cx: number,
+  cy: number,
+  h: number,
+  r: number,
+): boolean {
+  const qx = clamp(p.x, cx - h, cx + h);
+  const qy = clamp(p.y, cy - h, cy + h);
+  const dx = p.x - qx;
+  const dy = p.y - qy;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= r * r) return false;
+
+  if (d2 > 1e-6) {
+    const d = Math.sqrt(d2);
+    p.x = qx + (dx / d) * r;
+    p.y = qy + (dy / d) * r;
+  } else {
+    // Centre inside the square: leave by whichever face is closest.
+    const l = p.x - (cx - h);
+    const rt = cx + h - p.x;
+    const dn = p.y - (cy - h);
+    const up = cy + h - p.y;
+    const m = Math.min(l, rt, dn, up);
+    if (m === dn) p.y = cy - h - r;
+    else if (m === l) p.x = cx - h - r;
+    else if (m === rt) p.x = cx + h + r;
+    else p.y = cy + h + r;
+  }
+  return true;
 }
 
 /**

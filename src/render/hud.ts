@@ -322,7 +322,7 @@ function hatch(
 }
 
 /** A white cog: eight teeth round a ring. */
-function gear(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+export function gear(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = '#ffffff';

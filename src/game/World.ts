@@ -18,8 +18,6 @@ import {
 import { Pool } from '../core/pool';
 import { Rng } from '../core/rng';
 import { CHARACTERS, DEFAULT_CHARACTER } from '../data/characters';
-import { DRONES, DRONE_IDS } from '../data/drones';
-import { PROJECTILE_WEAPON_IDS, WEAPONS } from '../data/weapons';
 import { Camera } from './Camera';
 import { Darkness } from './Darkness';
 import { SpawnDirector } from './SpawnDirector';
@@ -48,6 +46,7 @@ import {
 } from './systems/playerSystem';
 import { updateProjectiles } from './systems/projectileSystem';
 import { updatePlayerGuns } from './systems/weaponSystem';
+import { rollWeapon } from './weaponDrops';
 import { compileLoadout } from './weapons/compile';
 import type { CharacterDef, CompiledLoadout, WeaponId } from './weapons/types';
 
@@ -98,16 +97,6 @@ export class World {
   deathCause: DeathCause = null;
   /** REAL seconds of slow-motion hold after dying. */
   deathHold = 0;
-
-  /** Every droppable weapon, projectile and drone alike, with its rarity. */
-  private readonly dropIds: WeaponId[] = [
-    ...PROJECTILE_WEAPON_IDS,
-    ...DRONE_IDS,
-  ];
-  private readonly dropWeights: number[] = [
-    ...PROJECTILE_WEAPON_IDS.map((id) => WEAPONS[id].pickupWeight),
-    ...DRONE_IDS.map((id) => DRONES[id].pickupWeight),
-  ];
 
   constructor(characterId: string = DEFAULT_CHARACTER) {
     this.playerShots = new Pool(POOL_PSHOT, createProjectile, resetProjectile);
@@ -189,8 +178,7 @@ export class World {
   }
 
   rollWeapon(): WeaponId {
-    const i = this.rng.weighted(this.dropWeights);
-    return this.dropIds[i < 0 ? 0 : i];
+    return rollWeapon(this.rng);
   }
 
   /** Score the player must reach before the next boss, from here. */

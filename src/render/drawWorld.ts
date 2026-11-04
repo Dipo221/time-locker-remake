@@ -412,11 +412,22 @@ export interface WorldZoom {
   sy: number;
 }
 
+/** The empty corridor: background marks and side walls, in world space. */
+export function drawGround(ctx: CanvasRenderingContext2D, cameraY: number): void {
+  drawBackgroundMarks(ctx, cameraY);
+  drawWalls(ctx, cameraY);
+}
+
+/**
+ * `underlay` draws in world space right after the ground and under
+ * everything that moves - the lobby floor the run starts on.
+ */
 export function drawWorld(
   vp: Viewport,
   w: World,
   clock: Clock,
   zoom: WorldZoom | null = null,
+  underlay: ((ctx: CanvasRenderingContext2D) => void) | null = null,
 ): void {
   const ctx = vp.ctx;
 
@@ -442,8 +453,8 @@ export function drawWorld(
   if (zoom === null) vp.applyWorld(w.camera.x, w.camera.y);
   else vp.applyWorldZoom(zoom.fx, zoom.fy, zoom.zoom, zoom.sx, zoom.sy);
 
-  drawBackgroundMarks(ctx, w.camera.y);
-  drawWalls(ctx, w.camera.y);
+  drawGround(ctx, w.camera.y);
+  underlay?.(ctx);
   drawObstacles(ctx, w.enemies);
   drawParticles(ctx, w.particles);
   drawPickups(ctx, w.pickups, clock.realElapsed);
