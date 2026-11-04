@@ -69,7 +69,7 @@ function nearestTarget(w: World, e: RuntimeEmitter): Enemy | null {
   let bestD2 = e.trackRange * e.trackRange;
   for (let i = 0; i < pool.count; i++) {
     const t = pool.active[i];
-    if (!t.alive) continue;
+    if (!t.alive || t.solid) continue;
     if (t.flying && !e.hitsFlying) continue;
     const dx = t.x - p.x;
     const dy = t.y - p.y;

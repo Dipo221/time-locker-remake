@@ -60,6 +60,7 @@ export const PARTICLE_COLORS: readonly string[] = [
   '#2eb872', // green
   '#2b6cf6', // blue crates
   '#1e2024', // the player
+  '#b9b4aa', // obstacles
 ];
 
 export function colorIndexFor(role: string): number {
@@ -72,6 +73,8 @@ export function colorIndexFor(role: string): number {
       return 3;
     case 'blue':
       return 4;
+    case 'grey':
+      return 6;
     default:
       return 0;
   }

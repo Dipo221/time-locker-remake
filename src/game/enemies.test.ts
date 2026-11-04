@@ -203,7 +203,9 @@ describe('stationary enemies', () => {
       w.update(mk(1), { ...STILL, dy: 1.3 });
       for (let j = 0; j < w.enemies.count; j++) {
         const e = w.enemies.active[j];
-        if (e.archetype !== 'turret' || e.isBoss) continue;
+        // Obstacles are terrain spread across the whole corridor on purpose;
+        // the rule here is about turrets that would sit unseen.
+        if (e.archetype !== 'turret' || e.isBoss || e.solid) continue;
         const sx = e.x - w.camera.x;
         expect(sx, `${e.def.id} placed off to the side`).toBeGreaterThan(-1);
         expect(sx).toBeLessThan(541);

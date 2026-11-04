@@ -18,19 +18,37 @@ import {
   SPAWN_MIN,
   SPAWN_MIN_PLAYER_DIST,
   FLAGS,
+  OBSTACLE_BAND,
+  OBSTACLE_FIRST_Y,
+  OBSTACLE_GAP_MAX,
+  OBSTACLE_GAP_MIN,
+  OBSTACLE_GREEN_CHANCE,
+  OBSTACLE_PASSAGE,
   VIEW_H,
   VIEW_W,
   WORLD_W,
 } from '../config';
 import { DEG } from '../core/math';
-import type { Rng } from '../core/rng';
+import { Rng } from '../core/rng';
 import { BOSSES } from '../data/bosses';
 import type { EnemyDef } from '../data/enemies';
 import { ENEMIES } from '../data/enemies';
+import { OBSTACLE_KINDS, greenVariant } from '../data/obstacles';
 import { applyDef } from './entities/Enemy';
 import type { World } from './World';
 
 type Side = 0 | 1 | 2 | 3; // top, left, right, bottom
+
+/** Obstacles keep clear of the side walls, so you can always pass along one. */
+const PLAY_EDGE = 70;
+
+function countSolids(w: World): number {
+  let n = 0;
+  for (let i = 0; i < w.enemies.count; i++) {
+    if (w.enemies.active[i].solid) n++;
+  }
+  return n;
+}
 
 /**
  * Difficulty is driven by SCORE, not elapsed time, because score is the game's
@@ -46,10 +64,22 @@ export class SpawnDirector {
   private readonly weights: number[] = [];
   /** Avoids meeting the same boss twice in a row. */
   private lastBossId = '';
+  /** World y at which the next obstacle cluster is laid down. */
+  private nextObstacleY = OBSTACLE_FIRST_Y;
+  /**
+   * Obstacles roll on their OWN stream. Terrain comes and goes with distance
+   * rather than time, so sharing the world's stream would reshuffle every
+   * enemy spawn whenever the player's pace changed by a hair.
+   */
+  private readonly obstacleRng = new Rng();
+  /** Scratch for cluster layout; reused so a cluster allocates nothing. */
+  private readonly placed: { x: number; y: number; half: number }[] = [];
 
-  reset(): void {
+  reset(seed = 0): void {
     this.timer = SPAWN_BASE * 0.5;
     this.lastBossId = '';
+    this.nextObstacleY = OBSTACLE_FIRST_Y;
+    this.obstacleRng.reseed(seed ^ 0x5bd1e995);
   }
 
   interval(score: number): number {
@@ -82,8 +112,11 @@ export class SpawnDirector {
   }
 
   update(w: World, dt: ScaledDt): void {
-    if (dt === 0) return;
     if (w.phase !== 'playing') return;
+    // Before the dt check: the player moves on the real clock, so the road
+    // ahead must keep appearing even while the world is frozen.
+    this.layObstacles(w);
+    if (dt === 0) return;
 
     const bosses = w.countBosses();
 
@@ -102,13 +135,77 @@ export class SpawnDirector {
     if (this.timer > 0) return;
     this.timer += this.interval(w.score);
 
-    const room = this.cap(w.score) - w.enemies.count;
+    // Obstacles share the pool but are scenery, not pressure: they must not
+    // eat into how many enemies the difficulty curve allows.
+    const room = this.cap(w.score) - (w.enemies.count - countSolids(w));
     if (room <= 0) return;
 
     const def = this.roll(w.score, w.rng);
     if (def === null) return;
 
     this.spawn(w, def, room);
+  }
+
+  /** Lay down every cluster the view is about to reach. */
+  private layObstacles(w: World): void {
+    const ahead = w.camera.y + VIEW_H / 2 + SPAWN_MARGIN;
+    while (this.nextObstacleY <= ahead) {
+      this.spawnCluster(w, Math.max(this.nextObstacleY, ahead));
+      this.nextObstacleY += this.obstacleRng.range(
+        OBSTACLE_GAP_MIN,
+        OBSTACLE_GAP_MAX,
+      );
+    }
+  }
+
+  /**
+   * One cluster: a few blocks, or a stand of trees, scattered across the
+   * whole corridor - terrain belongs to the world, not to the current view.
+   *
+   * Every pair keeps OBSTACLE_PASSAGE of clear space between their bodies,
+   * so a cluster always has a way through and is never a wall: it is there
+   * to make you steer, and the darkness behind makes a dead end lethal.
+   * Sometimes one member is green and full of coins, as in the original.
+   */
+  private spawnCluster(w: World, baseY: number): void {
+    const rng = this.obstacleRng;
+    const kind = OBSTACLE_KINDS[rng.int(OBSTACLE_KINDS.length)];
+    const wanted = kind[0].shape === 'tree' ? 3 + rng.int(4) : 2 + rng.int(3);
+    const greenAt = rng.next() < OBSTACLE_GREEN_CHANCE ? rng.int(wanted) : -1;
+
+    const placed = this.placed;
+    placed.length = 0;
+    for (let i = 0; i < wanted; i++) {
+      const base = kind[rng.int(kind.length)];
+      const def = i === greenAt ? greenVariant(base) : base;
+      const half = def.solid === 'box' ? def.drawSize / 2 : def.hitboxRadius;
+
+      // Rejection sampling: a handful of tries, then give up on this member
+      // rather than force it into a gap.
+      for (let attempt = 0; attempt < 24; attempt++) {
+        const x = rng.range(PLAY_EDGE + half, WORLD_W - PLAY_EDGE - half);
+        const y = baseY + half + rng.next() * OBSTACLE_BAND;
+        let clear = true;
+        for (const o of placed) {
+          const need = half + o.half + OBSTACLE_PASSAGE;
+          if (Math.abs(x - o.x) < need && Math.abs(y - o.y) < need) {
+            clear = false;
+            break;
+          }
+        }
+        if (!clear) continue;
+
+        const e = w.enemies.spawn();
+        if (e === null) return;
+        applyDef(e, def);
+        e.x = x;
+        e.y = y;
+        e.heading = Math.PI / 2;
+        e.angle = 0;
+        placed.push({ x, y, half });
+        break;
+      }
+    }
   }
 
   /**

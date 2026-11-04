@@ -76,6 +76,8 @@ function enemyColor(role: string): string {
       return COLOR.boss;
     case 'blue':
       return COLOR.pickup;
+    case 'grey':
+      return COLOR.obstacle;
     default:
       return COLOR.enemyBlack;
   }
@@ -266,11 +268,37 @@ function drawLongBody(
   }
 }
 
+/**
+ * Obstacles, under everything that moves: enemies pass over them and debris
+ * settles on them. The accent is the shaded face turned toward the player.
+ */
+function drawObstacles(
+  ctx: CanvasRenderingContext2D,
+  pool: Pool<Enemy>,
+): void {
+  for (let i = 0; i < pool.count; i++) {
+    const e = pool.active[i];
+    if (!e.solid) continue;
+    const green = e.colorRole === 'green';
+    drawShape(
+      ctx,
+      e.shape,
+      e.x,
+      e.y,
+      e.drawSize,
+      0,
+      green ? COLOR.enemyGreen : COLOR.obstacle,
+      green ? COLOR.coinCarrierSide : COLOR.obstacleSide,
+    );
+  }
+}
+
 function drawEnemies(ctx: CanvasRenderingContext2D, pool: Pool<Enemy>): void {
   // Ground first, air second, so helicopters pass OVER everything else.
   for (let pass = 0; pass < 2; pass++) {
     for (let i = 0; i < pool.count; i++) {
       const e = pool.active[i];
+      if (e.solid) continue;
       if (e.flying !== (pass === 1)) continue;
 
       const frozen = e.frozenFor > 0;
@@ -401,6 +429,7 @@ export function drawWorld(vp: Viewport, w: World, clock: Clock): void {
 
   drawBackgroundMarks(ctx, w.camera.y);
   drawWalls(ctx, w.camera.y);
+  drawObstacles(ctx, w.enemies);
   drawParticles(ctx, w.particles);
   drawPickups(ctx, w.pickups, clock.realElapsed);
   drawEnemies(ctx, w.enemies);

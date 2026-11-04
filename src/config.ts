@@ -355,6 +355,29 @@ export const DEATH_SLOWMO = 0.1;
 export const DEATH_HOLD_SEC = 1.1;
 export const DEATH_PARTICLES = 90;
 
+// ---------------------------------------------------------- OBSTACLES
+/**
+ * Clusters of terrain - big blocks and trees - laid across the corridor by
+ * DISTANCE travelled, not by time: they are scenery you run into, so they
+ * arrive at the same rate however fast you push. Shooting them scores
+ * nothing; they are there to make you steer.
+ */
+export const OBSTACLE_FIRST_Y = 1400;
+export const OBSTACLE_GAP_MIN = 1100;
+export const OBSTACLE_GAP_MAX = 2100;
+/** How deep a cluster is, measured along the run. */
+export const OBSTACLE_BAND = 200;
+/** Clear space kept between any two members, so a cluster is never a wall. */
+export const OBSTACLE_PASSAGE = 74;
+/** Chance a cluster hides one green, coin-carrying member. */
+export const OBSTACLE_GREEN_CHANCE = 0.4;
+/**
+ * Fraction of the player's DRAWN size that stops against an obstacle. The
+ * hitbox is far smaller than the silhouette on purpose (it decides deaths);
+ * solids use something near the visible body, or you would sink into blocks.
+ */
+export const PLAYER_SOLID_RADIUS_FRAC = 0.4;
+
 // -------------------------------------------------------------- POOLS
 export const POOL_ENEMY = 64;
 export const POOL_PSHOT = 512;
@@ -405,6 +428,15 @@ export const COLOR = {
   darkness: '#06070a',
   hud: '#1e2024',
   hudDim: '#a7a29a',
+  /**
+   * Obstacles. A notch darker than the side walls, so a block in the field
+   * never reads as part of the corridor edge; the side shade is the face
+   * turned toward the player.
+   */
+  obstacle: '#c9c5bc',
+  obstacleSide: '#9f9a90',
+  /** The face of a green, coin-carrying obstacle. */
+  coinCarrierSide: '#1d7f4e',
 } as const;
 
 /**

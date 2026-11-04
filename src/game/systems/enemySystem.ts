@@ -30,6 +30,13 @@ const BOSS_EDGE_MARGIN = 70;
  * in one system and lethal in another.
  */
 export function bodyDist2(e: Enemy, px: number, py: number): number {
+  if (e.boxHalf > 0) {
+    // A block: distance to the nearest point of its square, 0 inside it.
+    const h = e.boxHalf;
+    const dx = px - clamp(px, e.x - h, e.x + h);
+    const dy = py - clamp(py, e.y - h, e.y + h);
+    return dx * dx + dy * dy;
+  }
   if (e.length <= 0) {
     const dx = px - e.x;
     const dy = py - e.y;
@@ -290,9 +297,11 @@ export function updateEnemies(
     // Long bodies get their length added, so a trailer is not deleted while
     // most of it is still on screen.
     const margin = CULL_MARGIN + e.length;
+    // Obstacles are laid out ahead of the view on purpose and never move, so
+    // they are only culled once they fall behind.
     if (
       !e.isBoss &&
-      (e.y > top + e.length ||
+      ((e.y > top + e.length && !e.solid) ||
         e.y < bottom - e.length ||
         e.x < -margin ||
         e.x > WORLD_W + margin)

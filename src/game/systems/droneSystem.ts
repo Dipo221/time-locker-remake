@@ -102,7 +102,8 @@ export class DroneController {
     let bestD2 = radius * radius;
     for (let i = 0; i < pool.count; i++) {
       const e = pool.active[i];
-      if (!e.alive) continue;
+      // A mine spent on a rock is a mine wasted.
+      if (!e.alive || e.solid) continue;
       const dd = dist2(e.x, e.y, d.x, d.y);
       if (dd < bestD2) {
         bestD2 = dd;

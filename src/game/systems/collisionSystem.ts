@@ -114,6 +114,8 @@ export function resolveCollisions(w: World): void {
       // bomb zone and that directly beneath it is safe: the body itself is
       // overhead and cannot touch you.
       if (e.flying) continue;
+      // Obstacles stop you rather than kill you; see pushOutOfSolids.
+      if (e.solid) continue;
       const r = p.hitboxRadius + e.hitboxRadius;
       if (bodyDist2(e, p.x, p.y) <= r * r) {
         killPlayer(w);

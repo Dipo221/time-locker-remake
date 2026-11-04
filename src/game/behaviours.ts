@@ -77,7 +77,8 @@ function nearestEnemy(
   let bestD2 = radius * radius;
   for (let i = 0; i < pool.count; i++) {
     const e = pool.active[i];
-    if (!e.alive || e === exclude) continue;
+    // Homing never locks onto an obstacle: shots would pile into scenery.
+    if (!e.alive || e.solid || e === exclude) continue;
     const dx = e.x - x;
     const dy = e.y - y;
     const d2 = dx * dx + dy * dy;

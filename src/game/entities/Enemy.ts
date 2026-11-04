@@ -44,6 +44,10 @@ export interface Enemy extends Poolable {
   length: number;
   /** Air unit: only homing weapons reach it, and touching it is harmless. */
   flying: boolean;
+  /** Obstacle: blocks instead of killing, never targeted. See EnemyDef.solid. */
+  solid: boolean;
+  /** Half the side of a square body; 0 for anything round. */
+  boxHalf: number;
 }
 
 export function createEnemy(): Enemy {
@@ -75,6 +79,8 @@ export function createEnemy(): Enemy {
     charging: false,
     length: 0,
     flying: false,
+    solid: false,
+    boxHalf: 0,
   };
 }
 
@@ -104,6 +110,8 @@ export function resetEnemy(e: Enemy): void {
   e.charging = false;
   e.length = 0;
   e.flying = false;
+  e.solid = false;
+  e.boxHalf = 0;
 }
 
 /** Apply a table entry to a freshly spawned enemy. */
@@ -126,4 +134,6 @@ export function applyDef(e: Enemy, def: EnemyDef): void {
   e.charging = false;
   e.length = def.length ?? 0;
   e.flying = def.flying === true;
+  e.solid = def.solid !== undefined;
+  e.boxHalf = def.solid === 'box' ? def.drawSize / 2 : 0;
 }

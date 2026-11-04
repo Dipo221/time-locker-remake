@@ -41,7 +41,11 @@ import { updateEnemyGuns } from './systems/enemyWeaponSystem';
 import { DroneController } from './systems/droneSystem';
 import { updateParticles } from './systems/particleSystem';
 import { updatePickups } from './systems/pickupSystem';
-import { tickInvincibility, updatePlayerBody } from './systems/playerSystem';
+import {
+  pushOutOfSolids,
+  tickInvincibility,
+  updatePlayerBody,
+} from './systems/playerSystem';
 import { updateProjectiles } from './systems/projectileSystem';
 import { updatePlayerGuns } from './systems/weaponSystem';
 import { compileLoadout } from './weapons/compile';
@@ -159,7 +163,7 @@ export class World {
 
     this.camera.reset(p.x, p.y);
     this.darkness.reset(p.y);
-    this.spawner.reset();
+    this.spawner.reset(seed);
 
     this.stacks.clear();
     this.recompile();
@@ -239,6 +243,7 @@ export class World {
     // Only these may read clock.real. The branded types enforce it: passing
     // clock.scaled to any of them is a compile error.
     updatePlayerBody(this.player, input, R);
+    pushOutOfSolids(this.player, this.enemies);
     tickInvincibility(this.player, R);
     this.darkness.update(this.player.y, this.score, R);
     this.camera.follow(this.player.y, this.darkness.y, R);

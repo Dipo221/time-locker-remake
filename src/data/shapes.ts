@@ -52,7 +52,9 @@ export type ShapeId =
   | 'supporter'
   | 'bulletRound'
   | 'bulletLong'
-  | 'beam';
+  | 'beam'
+  | 'slab'
+  | 'tree';
 
 /** Convenience: a part and its mirror image. */
 function sym(p: ShapePart): ShapePart[] {
@@ -127,6 +129,29 @@ export const SHAPES: Record<ShapeId, ShapeDef> = {
     parts: [
       { kind: 'rect', x: -0.4, y: -0.4, w: 0.8, h: 0.8, fill: 'body' },
       { kind: 'rect', x: -0.26, y: -0.26, w: 0.52, h: 0.52, fill: 'accent' },
+    ],
+  },
+
+  /**
+   * Obstacle block. The darker band is the face turned toward you (the
+   * player comes from below), which is all it takes to read as a solid
+   * object rather than a flat tile. Spans exactly -0.5..0.5, because the
+   * collision box is the drawn square - see Enemy.boxHalf.
+   */
+  slab: {
+    parts: [
+      { kind: 'rect', x: -0.5, y: -0.5, w: 1, h: 1, fill: 'body' },
+      { kind: 'rect', x: -0.5, y: -0.5, w: 1, h: 0.2, fill: 'accent' },
+    ],
+  },
+
+  /** Obstacle tree: a stacked pine on a short trunk. */
+  tree: {
+    parts: [
+      { kind: 'rect', x: -0.08, y: -0.5, w: 0.16, h: 0.24, fill: 'accent' },
+      { kind: 'poly', points: [-0.42, -0.3, 0.42, -0.3, 0, 0.12], fill: 'body' },
+      { kind: 'poly', points: [-0.34, -0.06, 0.34, -0.06, 0, 0.3], fill: 'body' },
+      { kind: 'poly', points: [-0.25, 0.16, 0.25, 0.16, 0, 0.5], fill: 'body' },
     ],
   },
 

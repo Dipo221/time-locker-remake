@@ -58,7 +58,8 @@ export type ColorRole =
   | 'purple'
   | 'blue'
   | 'green'
-  | 'boss';
+  | 'boss'
+  | 'grey';
 
 export type DropKind = 'none' | 'weapon' | 'coin';
 
@@ -145,6 +146,17 @@ export interface EnemyDef {
    * trivially easy to slip past.
    */
   readonly length?: number;
+
+  // --- obstacles (data/obstacles.ts) ---------------------------------------
+  /**
+   * Terrain rather than an enemy: it blocks the player instead of killing,
+   * stops shots, is never targeted, never counts toward the enemy cap and
+   * scores nothing. 'box' is a square exactly drawSize across; 'round' uses
+   * hitboxRadius like everything else.
+   */
+  readonly solid?: 'box' | 'round';
+  /** How many coins it drops when destroyed. Defaults to one. */
+  readonly dropCount?: number;
 }
 
 /**

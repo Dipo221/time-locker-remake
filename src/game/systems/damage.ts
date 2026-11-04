@@ -19,6 +19,8 @@ export function damageEnemy(w: World, e: Enemy, amount: number): void {
 /** Freeze on hit. A frozen enemy stops moving and shooting - but still kills. */
 export function freezeEnemy(e: Enemy, seconds: number): void {
   if (!e.alive) return;
+  // A frozen rock would look like a frozen enemy, which it is not.
+  if (e.solid) return;
   // Refresh rather than add, so stacked ice does not bank minutes of freeze.
   if (e.frozenFor < seconds) e.frozenFor = seconds;
 }
@@ -65,11 +67,17 @@ export function killEnemy(w: World, e: Enemy): void {
   );
 
   if (e.drop === 'coin') {
-    const k = w.pickups.spawn();
-    if (k !== null) {
+    // A green obstacle sprays several, scattered across where it stood.
+    const n = e.def.dropCount ?? 1;
+    const spread = n > 1 ? e.drawSize * 0.45 : 0;
+    for (let i = 0; i < n; i++) {
+      const k = w.pickups.spawn();
+      if (k === null) break;
+      const a = (i / n) * Math.PI * 2 + w.rng.next() * 0.8;
+      const d = spread * (0.5 + w.rng.next() * 0.5);
       k.kind = 'coin';
-      k.x = e.x;
-      k.y = e.y;
+      k.x = e.x + Math.cos(a) * d;
+      k.y = e.y + Math.sin(a) * d;
       k.vx = 0;
       k.vy = -20;
       k.weapon = null;
