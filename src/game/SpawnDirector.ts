@@ -7,8 +7,12 @@ import {
   BOSS_MAX_CONCURRENT,
   BOSS_SUPPRESSION,
   CAP_BASE,
+  CAP_LATE_FROM,
+  CAP_LATE_MAX,
+  CAP_LATE_STEP,
   CAP_MAX,
   CAP_STEP,
+  GROUP_LATE_STEP,
   SIDE_BANDS,
   SPAWN_AIM_JITTER_DEG,
   SPAWN_BASE,
@@ -16,6 +20,8 @@ import {
   SPAWN_HALVING_SCORE,
   SPAWN_MARGIN,
   SPAWN_MIN,
+  SPAWN_MIN_LATE,
+  SPAWN_MIN_LATE_SCORE,
   SPAWN_MIN_PLAYER_DIST,
   FLAGS,
   OBSTACLE_BAND,
@@ -36,6 +42,7 @@ import type { EnemyDef } from '../data/enemies';
 import { ENEMIES } from '../data/enemies';
 import { OBSTACLE_KINDS, greenVariant } from '../data/obstacles';
 import type { Enemy } from './entities/Enemy';
+import { toughness } from './difficulty';
 import { applyDef } from './entities/Enemy';
 import type { World } from './World';
 
@@ -106,14 +113,16 @@ export class SpawnDirector {
   }
 
   interval(score: number): number {
-    return Math.max(
-      SPAWN_MIN,
-      SPAWN_BASE * Math.pow(0.5, score / SPAWN_HALVING_SCORE),
-    );
+    const late = Math.min(1, score / SPAWN_MIN_LATE_SCORE);
+    const floor = SPAWN_MIN - (SPAWN_MIN - SPAWN_MIN_LATE) * late;
+    return Math.max(floor, SPAWN_BASE * Math.pow(0.5, score / SPAWN_HALVING_SCORE));
   }
 
+  /** The early ramp to CAP_MAX, then a slow climb for the rest of the run. */
   cap(score: number): number {
-    return Math.min(CAP_MAX, CAP_BASE + Math.floor(score / CAP_STEP));
+    const early = Math.min(CAP_MAX, CAP_BASE + Math.floor(score / CAP_STEP));
+    const late = Math.floor(Math.max(0, score - CAP_LATE_FROM) / CAP_LATE_STEP);
+    return Math.min(CAP_LATE_MAX, early + late);
   }
 
   sideWeights(score: number): readonly [number, number, number, number] {
@@ -224,6 +233,8 @@ export class SpawnDirector {
         const e = w.enemies.spawn();
         if (e === null) return;
         applyDef(e, def);
+        e.hp = Math.ceil(def.hp * toughness(w.score));
+        e.maxHp = e.hp;
         e.x = x;
         e.y = y;
         e.heading = Math.PI / 2;
@@ -243,8 +254,14 @@ export class SpawnDirector {
     const lo = def.groupMin ?? 1;
     const hi = def.groupMax ?? 1;
     if (hi <= 1) return 1;
-    const bonus = Math.min(3, Math.floor(score / 650));
-    return lo + rng.int(hi - lo + 1) + bonus;
+    const base = lo + rng.int(hi - lo + 1);
+    // Herds of big things keep their size: score grows the flocks of small
+    // things, not walls of bears you cannot get through.
+    if (def.herd === true) return base;
+    const bonus =
+      Math.min(3, Math.floor(score / 650)) +
+      Math.min(3, Math.floor(score / GROUP_LATE_STEP));
+    return base + bonus;
   }
 
   /**
@@ -396,6 +413,8 @@ export class SpawnDirector {
       if (e === null) return;
 
       applyDef(e, def);
+      e.hp = Math.ceil(def.hp * toughness(w.score));
+      e.maxHp = e.hp;
       e.x = ex;
       e.y = ey;
       e.phase = rng.next() * 10;

@@ -93,6 +93,11 @@ export interface EnemyDef {
   readonly groupMin?: number;
   readonly groupMax?: number;
   /**
+   * A herd of big things: arrives at its own group size however high the
+   * score, where ordinary flocks grow. Twelve bears abreast is a wall.
+   */
+  readonly herd?: boolean;
+  /**
    * Enemies fire through the SAME EmitterSpec the player's weapons use, into
    * the same projectile pool, through the same behaviour code. The only
    * differences are the faction flag and the colour role. That shared type is
@@ -830,6 +835,92 @@ export const ENEMIES: readonly EnemyDef[] = [
     },
   },
 
+  // --- late game: the heavies ---------------------------------------------
+  // Everything above has arrived by 1,600 points. These are what a long run
+  // is still waiting for: big, tough, and in numbers, as the original sends
+  // trucks and herds of bears at a run that has gone on a while.
+
+  /** A herd of bears: the lone bear's bulk, several abreast. */
+  {
+    id: 'bear.herd',
+    colorRole: 'black',
+    shape: 'bear',
+    drawSize: 52,
+    hitboxRadius: 20,
+    hp: 7,
+    archetype: 'straight',
+    speed: 85,
+    scoreValue: 45,
+    drop: 'none',
+    minScore: 4000,
+    spawnWeight: 8,
+    groupMin: 3,
+    groupMax: 5,
+    herd: true,
+  },
+  /** A truck: the trailer's big brother - wider, longer, much tougher. */
+  {
+    id: 'truck',
+    colorRole: 'black',
+    shape: 'car',
+    drawSize: 60,
+    hitboxRadius: 24,
+    hp: 16,
+    archetype: 'straight',
+    speed: 190,
+    length: 230,
+    scoreValue: 80,
+    drop: 'none',
+    minScore: 6000,
+    spawnWeight: 5,
+  },
+  /** A column of tanks, each with its gun: a moving line of fire. */
+  {
+    id: 'tank.column',
+    colorRole: 'black',
+    shape: 'block',
+    drawSize: 44,
+    hitboxRadius: 17,
+    hp: 7,
+    archetype: 'straight',
+    speed: 75,
+    scoreValue: 45,
+    drop: 'none',
+    minScore: 9000,
+    spawnWeight: 6,
+    groupMin: 3,
+    groupMax: 4,
+    herd: true,
+    aim: 'facing',
+    weapon: {
+      id: 'tankColumnGun',
+      anglesDeg: [0],
+      burst: 1,
+      spreadDeg: 0,
+      cadence: 1.4,
+      phase: 0.2,
+      muzzleY: 24,
+      projectile: ENEMY_SHOT,
+    },
+  },
+  /** Mammoths on the move: the mammoth wall, walking at you. */
+  {
+    id: 'mammoth.herd',
+    colorRole: 'black',
+    shape: 'mammoth',
+    drawSize: 68,
+    hitboxRadius: 26,
+    hp: 14,
+    archetype: 'straight',
+    speed: 60,
+    scoreValue: 70,
+    drop: 'none',
+    minScore: 12000,
+    spawnWeight: 5,
+    groupMin: 2,
+    groupMax: 3,
+    herd: true,
+  },
   /** Green carrier: the coin source. */
   {
     id: 'carrier.coin',

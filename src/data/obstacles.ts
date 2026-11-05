@@ -1,3 +1,4 @@
+import { OBSTACLE_HP_PER_AREA } from '../config';
 import type { EnemyDef } from './enemies';
 
 /**
@@ -13,8 +14,11 @@ function obstacle(
   id: string,
   shape: 'slab' | 'tree',
   drawSize: number,
-  hp: number,
 ): EnemyDef {
+  // Health goes with footprint. A tree is mostly canopy you can see past,
+  // so it counts for a little less than a block of the same size.
+  const area = (drawSize / 100) ** 2 * (shape === 'tree' ? 0.8 : 1);
+  const hp = Math.round(OBSTACLE_HP_PER_AREA * area);
   return {
     id,
     colorRole: 'grey',
@@ -45,18 +49,24 @@ function green(def: EnemyDef): EnemyDef {
   };
 }
 
-export const BLOCK_LARGE = obstacle('obstacle.block.large', 'slab', 112, 18);
-export const BLOCK_SMALL = obstacle('obstacle.block.small', 'slab', 76, 9);
-export const TREE = obstacle('obstacle.tree', 'tree', 66, 6);
+/*
+ * Big enough to actually stand in the way: the first sizes (76-112) were
+ * stepped round without noticing. A large block is now over a fifth of the
+ * corridor.
+ */
+export const BLOCK_LARGE = obstacle('obstacle.block.large', 'slab', 170);
+export const BLOCK_MEDIUM = obstacle('obstacle.block.medium', 'slab', 125);
+export const BLOCK_SMALL = obstacle('obstacle.block.small', 'slab', 85);
+export const TREE = obstacle('obstacle.tree', 'tree', 84);
 
 /** What a cluster is built from; each kind's members come from one list. */
 export const OBSTACLE_KINDS: readonly (readonly EnemyDef[])[] = [
-  [BLOCK_LARGE, BLOCK_SMALL],
+  [BLOCK_LARGE, BLOCK_MEDIUM, BLOCK_SMALL],
   [TREE],
 ];
 
 const GREEN = new Map<EnemyDef, EnemyDef>(
-  [BLOCK_LARGE, BLOCK_SMALL, TREE].map((d) => [d, green(d)]),
+  [BLOCK_LARGE, BLOCK_MEDIUM, BLOCK_SMALL, TREE].map((d) => [d, green(d)]),
 );
 
 export function greenVariant(def: EnemyDef): EnemyDef {

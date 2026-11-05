@@ -176,6 +176,30 @@ export const SPAWN_HALVING_SCORE = 450;
 export const CAP_BASE = 12;
 export const CAP_STEP = 70;
 export const CAP_MAX = 34;
+/*
+ * The LATE curve. Everything above tops out by about 2,000 points - spawn
+ * rate near 900, the cap near 1,500 - while the player's unbounded weapon
+ * stacking keeps growing all run, so a long run went flat: play-testing
+ * found the late game had no threat left. These keep the pressure rising
+ * for the rest of the run, slowly.
+ */
+/** Spawn interval floor falls from SPAWN_MIN to this by SPAWN_MIN_LATE_SCORE. */
+export const SPAWN_MIN_LATE = 0.13;
+export const SPAWN_MIN_LATE_SCORE = 40000;
+/** Past CAP_LATE_FROM, one more enemy allowed per CAP_LATE_STEP, up to CAP_LATE_MAX. */
+export const CAP_LATE_FROM = 2000;
+export const CAP_LATE_STEP = 1500;
+export const CAP_LATE_MAX = 60;
+/** Flocks grow by one more member per this much score, up to three more. */
+export const GROUP_LATE_STEP = 10000;
+/**
+ * Ordinary enemies and obstacles get tougher with score: health is
+ * multiplied by sqrt(score / TOUGHNESS_REF_SCORE), never below 1. Untouched
+ * until 2,500, then 2x at 10,000, 4x at 40,000, 8x at 160,000 - the same
+ * square-root shape that keeps boss fights level, because player damage
+ * grows with weapons collected, which slows as a run goes on.
+ */
+export const TOUGHNESS_REF_SCORE = 2500;
 export const SPAWN_MARGIN = 60;
 /** An unavoidable spawn-kill in a one-hit game is unforgivable. */
 export const SPAWN_MIN_PLAYER_DIST = 120;
@@ -393,6 +417,13 @@ export const OBSTACLE_GAP_MAX = 2100;
 export const OBSTACLE_BAND = 200;
 /** Clear space kept between any two members, so a cluster is never a wall. */
 export const OBSTACLE_PASSAGE = 74;
+/**
+ * Obstacle health per 100x100 of footprint, before toughness. Health goes
+ * with AREA, so a block twice as wide takes four times the shooting - the
+ * first obstacles fell to a single burst and never felt like they blocked
+ * anything.
+ */
+export const OBSTACLE_HP_PER_AREA = 16;
 /** Chance a cluster hides one green, coin-carrying member. */
 export const OBSTACLE_GREEN_CHANCE = 0.4;
 /**
@@ -403,7 +434,7 @@ export const OBSTACLE_GREEN_CHANCE = 0.4;
 export const PLAYER_SOLID_RADIUS_FRAC = 0.4;
 
 // -------------------------------------------------------------- POOLS
-export const POOL_ENEMY = 64;
+export const POOL_ENEMY = 96;
 export const POOL_PSHOT = 512;
 export const POOL_ESHOT = 192;
 export const POOL_PARTICLE = 1024;

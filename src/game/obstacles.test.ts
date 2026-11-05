@@ -206,7 +206,9 @@ describe('obstacle clusters', () => {
     for (let i = 0; i < 1500; i++) {
       p.invulnRealFor = 1e9;
       w.darkness.y = p.y - 600;
-      // Teleport forward rather than drag: obstacles would steer a drag.
+      // Teleport forward rather than drag, along the wall where obstacles
+      // always leave room: down the middle, a big block would stop us.
+      p.x = 20;
       p.y += 6;
       const before = seen.size;
       w.update(mk(1), drag(0, 0));
