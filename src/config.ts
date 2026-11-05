@@ -396,12 +396,15 @@ export const DEATH_PARTICLES = 90;
 // ----------------------------------------------------- WEAPON CARRIERS
 /**
  * Weapons come from a blue member of an ordinary group - one blue bird in a
- * flock - as in the original, not from a crate of their own. This is the
- * crate's old spawn weight, rolled alongside each spawn, so weapons arrive
- * exactly as often as they did: about one roll in five at the start of a
- * run, falling to one in twenty as the roster fills out.
+ * flock - as in the original, not from a crate of their own. Rolled beside
+ * each spawn as a weight against the roster's: about one roll in eleven at
+ * the start of a run, falling to one in fifty as the roster fills out.
+ *
+ * It was 20 (the old crate's weight) until play-testing found new weapons
+ * every few steps - 22 of them by three minutes - and characters grew too
+ * strong too fast.
  */
-export const WEAPON_CARRIER_WEIGHT = 20;
+export const WEAPON_CARRIER_WEIGHT = 8;
 
 // ---------------------------------------------------------- OBSTACLES
 /**
