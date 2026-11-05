@@ -59,10 +59,7 @@ export function drawHud(vp: Viewport, w: World): void {
   ctx.font = '600 44px ui-sans-serif, system-ui, -apple-system, sans-serif';
   ctx.fillText(String(w.score), 22, 20);
 
-  ctx.fillStyle = COLOR.hudDim;
-  ctx.font = '500 22px ui-sans-serif, system-ui, -apple-system, sans-serif';
-  ctx.fillText(`COINS ${w.coins}`, 24, 72);
-
+  drawCoins(ctx, w.coins);
   drawWeaponChips(ctx, w);
 
   if (w.phase === 'dead') {
@@ -164,6 +161,32 @@ export function drawBossBar(vp: Viewport, w: World): void {
   ctx.strokeRect(x, y, barW, barH);
 }
 
+/**
+ * The run's coins as the original shows them: the count and a green C, just
+ * left of the pause button. ONE function for the run and the pause screen,
+ * so the counter sits in exactly the same place in both - it used to jump
+ * from the top-left to the top-right when you paused.
+ */
+function drawCoins(ctx: CanvasRenderingContext2D, coins: number): void {
+  const b = PAUSE_BUTTON;
+  const cy = b.y + b.h / 2;
+  const badgeX = b.x - 8 - 44;
+  const sans = 'ui-sans-serif, system-ui, sans-serif';
+
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = COLOR.enemyGreen;
+  roundRect(ctx, badgeX, cy - 22, 44, 44, 6);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.font = `900 28px ${sans}`;
+  ctx.fillText('C', badgeX + 22, cy + 1);
+  ctx.fillStyle = COLOR.hud;
+  ctx.textAlign = 'right';
+  ctx.font = `italic 900 46px ${sans}`;
+  ctx.fillText(String(coins), badgeX - 8, cy + 2);
+}
+
 export function drawPauseButton(vp: Viewport): void {
   const ctx = vp.ctx;
   vp.applyUi();
@@ -241,18 +264,7 @@ export function drawPauseScreen(
   ctx.closePath();
   ctx.fill();
 
-  const badgeX = b.x - 8 - 44;
-  ctx.fillStyle = COLOR.enemyGreen;
-  roundRect(ctx, badgeX, cy - 22, 44, 44, 6);
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.font = `900 28px ${sans}`;
-  ctx.fillText('C', badgeX + 22, cy + 1);
-  ctx.fillStyle = COLOR.hud;
-  ctx.textAlign = 'right';
-  ctx.font = `${heavy} 46px ${sans}`;
-  ctx.fillText(String(w.coins), badgeX - 8, cy + 2);
+  drawCoins(ctx, w.coins);
 
   ctx.fillStyle = COLOR.player;
   ctx.font = `${heavy} 34px ${sans}`;
