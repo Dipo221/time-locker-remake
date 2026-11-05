@@ -40,12 +40,16 @@ const STILL: InputFrame = {
  * the list of its members. ANT BEAR has no gun, so nothing gets shot down
  * before it is seen.
  */
-function watchGroups(frames: number): Enemy[][] {
+/** What an enemy looked like when it spawned. Pool objects are recycled, so
+ * a reference kept past its life would show some later enemy's state. */
+type Seen = Pick<Enemy, 'def' | 'drop' | 'colorRole' | 'flying' | 'shape'>;
+
+function watchGroups(frames: number): Seen[][] {
   const w = new World('antBear');
   w.reset(3);
   const mk = clockFactory();
   const seen = new Set<Enemy>();
-  const groups: Enemy[][] = [];
+  const groups: Seen[][] = [];
 
   for (let i = 0; i < frames; i++) {
     w.player.invulnRealFor = 1e9;
@@ -53,16 +57,20 @@ function watchGroups(frames: number): Enemy[][] {
     w.score = 0;
     w.update(mk(1), STILL);
 
-    const fresh: Enemy[] = [];
+    const fresh: Seen[] = [];
     for (let j = 0; j < w.enemies.count; j++) {
       const e = w.enemies.active[j];
       if (e.solid || e.isBoss || seen.has(e)) continue;
       seen.add(e);
-      fresh.push(e);
+      fresh.push({ def: e.def, drop: e.drop, colorRole: e.colorRole, flying: e.flying, shape: e.shape });
     }
     if (fresh.length > 0) groups.push(fresh);
-    // Pool objects are recycled; forget the ones that left.
-    for (const e of seen) if (!e.alive) seen.delete(e);
+    // Clear the field once each group is recorded. Nothing shoots here, so
+    // otherwise the enemy cap fills and new groups stop coming - too few to
+    // measure a rate that is meant to be uncommon.
+    for (let j = 0; j < w.enemies.count; j++) w.enemies.active[j].alive = false;
+    w.enemies.compact();
+    seen.clear();
   }
   return groups;
 }
@@ -94,9 +102,9 @@ describe('weapon carriers', () => {
     expect(groups.some((g) => g.length > 1 && g.some((e) => e.drop === 'weapon'))).toBe(true);
   });
 
-  it('arrives as often as the old crate did', () => {
-    // At score 0 the crate took WEAPON_CARRIER_WEIGHT out of every roll's
-    // total. Carriers per group should match that share.
+  it('arrives at its configured rate', () => {
+    // At score 0, WEAPON_CARRIER_WEIGHT out of every roll's total.
+    // Carriers per group should match that share.
     let total = 0;
     for (const e of ENEMIES) if (e.minScore <= 0) total += e.spawnWeight;
     const share = WEAPON_CARRIER_WEIGHT / (total + WEAPON_CARRIER_WEIGHT);
