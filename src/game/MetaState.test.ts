@@ -270,3 +270,28 @@ describe('opened machines stay open', () => {
     expect(m.podsAvailable()).toBe(2);
   });
 });
+
+describe('the free coins before a run', () => {
+  it('are paid once per finished run, however often the lobby is visited', () => {
+    const m = meta();
+    const first = m.claimFreeCoins();
+    expect(first).toBeGreaterThan(0);
+    // Reloading the page re-enters the lobby: nothing more.
+    for (let i = 0; i < 5; i++) expect(m.claimFreeCoins()).toBe(0);
+    m.bankRun(100, 0);
+    expect(m.claimFreeCoins()).toBe(first);
+    expect(m.claimFreeCoins()).toBe(0);
+  });
+
+  it('survive a reload between the run and the lobby, but only once', () => {
+    const m = meta();
+    m.claimFreeCoins();
+    m.bankRun(100, 0);
+    const again = meta();
+    again.load(JSON.parse(JSON.stringify(m.toJSON())));
+    expect(again.claimFreeCoins()).toBeGreaterThan(0);
+    const third = meta();
+    third.load(JSON.parse(JSON.stringify(again.toJSON())));
+    expect(third.claimFreeCoins()).toBe(0);
+  });
+});

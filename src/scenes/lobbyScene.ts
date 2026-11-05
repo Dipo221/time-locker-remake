@@ -1,6 +1,5 @@
 import {
   COLOR,
-  FREE_COINS_PER_RUN,
   LOBBY_HOLD_SEC,
   PLAYER_MAX_SPEED,
   PLAYER_OUTLINE_PX,
@@ -137,9 +136,9 @@ export class LobbyScene implements Scene {
   private toastFor = 0;
 
   enter(ctx: SceneCtx): void {
-    // The original hands out a small free amount before every run.
-    ctx.meta.coins += FREE_COINS_PER_RUN;
-    saveMeta(ctx.meta);
+    // The original hands out a small free amount before every run - once
+    // per run, not once per visit, or reloading the lobby printed coins.
+    if (ctx.meta.claimFreeCoins() > 0) saveMeta(ctx.meta);
 
     ctx.pending = [];
     this.floor = buildLobbyFloor(ctx.meta);

@@ -1,5 +1,6 @@
 import {
   COIN_PER_SCORE,
+  FREE_COINS_PER_RUN,
   POD_PERMANENT_COST,
   POD_PULL_COST,
   POD_PULL_USES,
@@ -24,6 +25,8 @@ interface SaveShape {
   totalScore: number;
   /** Highest POD ever opened. Absent from saves before the curve changed. */
   podsOpen?: number;
+  /** A finished run's free coins not yet paid. */
+  freeCoinsDue?: boolean;
   selected: string;
   owned: Record<string, OwnedCharacter>;
 }
@@ -60,6 +63,12 @@ export class MetaState {
    * whose machines locked again would rightly feel robbed.
    */
   podsOpen = 1;
+  /**
+   * The free handful before a run is owed. Set when a run is banked and
+   * spent by the next lobby visit - it used to be paid on EVERY lobby
+   * visit, so reloading the page in the lobby printed coins.
+   */
+  freeCoinsDue = true;
   selected: string = DEFAULT_CHARACTER;
   readonly owned = new Map<string, OwnedCharacter>();
 
@@ -104,6 +113,14 @@ export class MetaState {
     if (o.uses === 0 && this.selected === id) {
       this.selected = DEFAULT_CHARACTER;
     }
+  }
+
+  /** The free coins before a run: paid once per finished run, never twice. */
+  claimFreeCoins(): number {
+    if (!this.freeCoinsDue) return 0;
+    this.freeCoinsDue = false;
+    this.coins += FREE_COINS_PER_RUN;
+    return FREE_COINS_PER_RUN;
   }
 
   // ------------------------------------------------------------------ pods
@@ -221,6 +238,7 @@ export class MetaState {
     this.totalScore += score;
     if (score > this.highScore) this.highScore = score;
     this.podsOpen = this.podsAvailable();
+    this.freeCoinsDue = true;
     return total;
   }
 
@@ -239,6 +257,7 @@ export class MetaState {
       highScore: this.highScore,
       totalScore: this.totalScore,
       podsOpen: this.podsOpen,
+      freeCoinsDue: this.freeCoinsDue,
       selected: this.selected,
       owned,
     };
@@ -251,6 +270,8 @@ export class MetaState {
     this.coins = numberOr(d.coins, 0);
     this.highScore = numberOr(d.highScore, 0);
     this.totalScore = numberOr(d.totalScore, 0);
+    // Saves from before this flag existed have had their handout already.
+    this.freeCoinsDue = d.freeCoinsDue === true;
     // A save from before podsOpen existed opened machines on the old, faster
     // curve; honour what it had then rather than closing them.
     this.podsOpen = Math.min(
