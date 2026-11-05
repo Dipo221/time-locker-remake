@@ -121,12 +121,64 @@ describe('permanent unlock', () => {
   });
 });
 
-describe('machines open with cumulative score', () => {
-  it('opens the next one at its threshold', () => {
+/** Find all but one of a POD's characters, as the next machine requires. */
+function findMost(m: MetaState, pod: number): void {
+  const pool = charactersInPod(pod);
+  for (const d of pool.slice(0, pool.length - 1)) m.grant(d.id, 3);
+}
+
+describe('machines open with score AND collection', () => {
+  it('score alone does not open the next machine', () => {
     const m = meta();
+    m.totalScore = 10_000_000;
     expect(m.podsAvailable()).toBe(1);
-    m.totalScore = POD_UNLOCK_SCORES[0] ?? 0;
+  });
+
+  it('opens once the score is there and the last one is nearly collected', () => {
+    const m = meta();
+    findMost(m, 1);
+    expect(m.podsAvailable(), 'collected, but not the score').toBe(1);
+    m.totalScore = POD_UNLOCK_SCORES[0];
     expect(m.podsAvailable()).toBe(2);
+  });
+
+  it('with score to spare, opens one machine per machine collected', () => {
+    const m = meta();
+    m.totalScore = 10_000_000;
+    findMost(m, 1);
+    expect(m.podsAvailable()).toBe(2);
+    findMost(m, 2);
+    expect(m.podsAvailable()).toBe(3);
+  });
+
+  it('counts a character you found even after its runs are used up', () => {
+    const m = meta();
+    m.totalScore = POD_UNLOCK_SCORES[0];
+    findMost(m, 1);
+    for (const d of charactersInPod(1)) {
+      for (let i = 0; i < 5; i++) m.consumeUse(d.id);
+    }
+    expect(m.isOwned(charactersInPod(1)[0].id)).toBe(false);
+    expect(m.podsAvailable()).toBe(2);
+  });
+
+  it('pulls find a new character every time until the machine is collected', () => {
+    const m = meta(100000);
+    const pool = charactersInPod(1);
+    const got = new Set<string>();
+    for (let i = 0; i < pool.length; i++) got.add(m.pull(1, new Rng(i + 1)) ?? '');
+    expect(got.size).toBe(pool.length);
+  });
+
+  it('says what the next machine is still waiting for', () => {
+    const m = meta();
+    const need = m.nextPod();
+    expect(need).not.toBeNull();
+    expect(need!.pod).toBe(2);
+    expect(need!.score).toBe(POD_UNLOCK_SCORES[0]);
+    expect(need!.from).toBe(1);
+    expect(need!.found).toBe(0);
+    expect(need!.needed).toBe(charactersInPod(1).length - 1);
   });
 
   it('accumulates across runs rather than taking the best', () => {
@@ -189,6 +241,7 @@ describe('persistence', () => {
 describe('opened machines stay open', () => {
   it('keeps a machine open whatever the curve says later', () => {
     const m = meta();
+    for (const pod of [1, 2, 3]) findMost(m, pod);
     m.bankRun(POD_UNLOCK_SCORES[2], 0);
     expect(m.podsAvailable()).toBe(4);
     m.totalScore = 0; // as if the curve had been raised past it
@@ -209,9 +262,11 @@ describe('opened machines stay open', () => {
     expect(again.podsAvailable()).toBe(5);
   });
 
-  it('a brand-new save opens on the new, slower curve', () => {
+  it('a save made under the new rules opens by score and collection', () => {
     const m = meta();
     m.load({ coins: 0, highScore: 0, totalScore: POD_UNLOCK_SCORES_V1[3], podsOpen: 1, selected: DEFAULT_CHARACTER, owned: {} });
+    expect(m.podsAvailable()).toBe(1);
+    findMost(m, 1);
     expect(m.podsAvailable()).toBe(2);
   });
 });

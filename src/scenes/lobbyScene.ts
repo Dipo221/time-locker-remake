@@ -62,6 +62,19 @@ const HEAVY = 'italic 900';
 const SANS = 'ui-sans-serif, system-ui, sans-serif';
 const MONO = 'ui-monospace, Menlo, Consolas, monospace';
 
+/**
+ * What the next POD is still waiting for, in a line: the characters still
+ * to find in the machine before it, and the score, whichever are missing.
+ */
+function nextPodLine(meta: MetaState): string {
+  const n = meta.nextPod();
+  if (n === null) return 'ALL PODS OPEN';
+  const parts: string[] = [];
+  if (n.found < n.needed) parts.push(`FIND ${n.needed - n.found} MORE IN POD ${n.from}`);
+  if (meta.totalScore < n.score) parts.push(`TOTAL ${n.score}`);
+  return parts.length > 0 ? parts.join(' + ') : `POD ${n.pod} OPENS NOW`;
+}
+
 /** Which machine this is, stable across rebuilds of the floor. */
 function machineKey(m: Machine): string {
   return `${m.kind}:${m.pod}`;
@@ -320,7 +333,7 @@ export class LobbyScene implements Scene {
   private offer(meta: MetaState, m: Machine): [boolean, string] {
     const short = (cost: number): string => `NEED ${cost - meta.coins} MORE COINS`;
     if (m.kind === 'pod') {
-      if (m.locked) return [false, `OPENS AT ${m.unlockAt} TOTAL SCORE  (${meta.totalScore} SO FAR)`];
+      if (m.locked) return [false, `POD ${m.pod}: ${nextPodLine(meta)}`];
       if (meta.coins < POD_PULL_COST) return [false, short(POD_PULL_COST)];
       return [true, `HOLD TO PULL FROM POD ${m.pod}`];
     }
@@ -337,12 +350,19 @@ export class LobbyScene implements Scene {
   private buy(ctx: SceneCtx, m: Machine): void {
     const { meta } = ctx;
     if (m.kind === 'pod') {
+      const before = meta.podsAvailable();
       const got = meta.pull(m.pod, ctx.rng);
       if (got === null) return;
       this.floor = buildLobbyFloor(meta);
       // You come out of the machine as what you pulled, as in the original.
       this.switchTo(ctx, got);
-      this.say(`${CHARACTERS[got]?.name ?? got}`, `+${POD_PULL_USES} RUNS  ·  from POD ${m.pod}`);
+      const opened = meta.podsAvailable() > before;
+      this.say(
+        `${CHARACTERS[got]?.name ?? got}`,
+        opened
+          ? `+${POD_PULL_USES} RUNS  ·  POD ${meta.podsAvailable()} IS NOW OPEN!`
+          : `+${POD_PULL_USES} RUNS  ·  from POD ${m.pod}`,
+      );
     } else if (m.kind === 'weapon') {
       meta.coins -= WEAPON_MACHINE_COST;
       const id = rollWeapon(ctx.rng);
@@ -421,12 +441,7 @@ export class LobbyScene implements Scene {
     c.fillText(`TOP ${meta.highScore}`, 22, 34);
     c.fillStyle = COLOR.hudDim;
     c.font = `600 13px ${MONO}`;
-    const next = meta.nextPodAt();
-    c.fillText(
-      next === null ? `TOTAL ${meta.totalScore}` : `TOTAL ${meta.totalScore}  ·  NEXT POD AT ${next}`,
-      22,
-      64,
-    );
+    c.fillText(`TOTAL ${meta.totalScore}  ·  ${nextPodLine(meta)}`, 22, 64, VIEW_W - 180);
 
     // Coins and their C badge, as in the original.
     const bx = VIEW_W - 22 - 44;

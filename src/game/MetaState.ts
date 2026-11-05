@@ -107,16 +107,61 @@ export class MetaState {
   }
 
   // ------------------------------------------------------------------ pods
-  /** How many vending machines are available, given cumulative score. */
+  /**
+   * How many vending machines are open. The next one opens when BOTH the
+   * cumulative score has reached its threshold AND you have found all but
+   * one of the characters in the machine before it.
+   *
+   * Score alone was the first rule, and a good run opened four or five
+   * machines at once while the coins it earned bought five pulls - machines
+   * ran out ahead of the characters in them. Now a new machine arrives as
+   * the last one is nearly collected, which is when it tempts you most; the
+   * score threshold stays as a floor, so a lucky streak of pulls cannot run
+   * a new player straight through the roster either.
+   */
   podsAvailable(): number {
-    return Math.max(this.podsOpen, podsFor(this.totalScore, POD_UNLOCK_SCORES));
+    let n = this.podsOpen;
+    while (n < MAX_POD && this.opens(n + 1)) n++;
+    return n;
   }
 
-  /** Cumulative score needed for the next POD, or null when all are open. */
-  nextPodAt(): number | null {
+  /** Characters of this POD you have ever pulled, used up or not. */
+  foundIn(pod: number): number {
+    return charactersInPod(pod).filter((d) => this.owned.has(d.id)).length;
+  }
+
+  /** How many of this POD's characters open the machine after it. */
+  findNeeded(pod: number): number {
+    return Math.max(0, charactersInPod(pod).length - 1);
+  }
+
+  /** Whether `pod` may open, given the one before it is open. */
+  private opens(pod: number): boolean {
+    const threshold = POD_UNLOCK_SCORES[pod - 2] ?? Infinity;
+    return this.totalScore >= threshold && this.foundIn(pod - 1) >= this.findNeeded(pod - 1);
+  }
+
+  /**
+   * What the next machine is still waiting for, or null when all are open:
+   * its score threshold, and how many of the previous machine's characters
+   * you have found against how many it takes.
+   */
+  nextPod(): {
+    pod: number;
+    score: number;
+    from: number;
+    found: number;
+    needed: number;
+  } | null {
     const open = this.podsAvailable();
     if (open >= MAX_POD) return null;
-    return POD_UNLOCK_SCORES[open - 1] ?? null;
+    return {
+      pod: open + 1,
+      score: POD_UNLOCK_SCORES[open - 1] ?? 0,
+      from: open,
+      found: this.foundIn(open),
+      needed: this.findNeeded(open),
+    };
   }
 
   canPull(pod: number): boolean {
@@ -131,15 +176,18 @@ export class MetaState {
   pull(pod: number, rng: Rng): string | null {
     if (!this.canPull(pod)) return null;
     const pool = charactersInPod(pod);
-    // Prefer something not yet permanently owned, so a pull still feels like
-    // progress once the POD is nearly complete.
-    const fresh = pool.filter((c) => !this.isPermanent(c.id));
-    const from = fresh.length > 0 ? fresh : pool;
+    // A character you have never had first, so every pull finds something
+    // new until the machine is collected - which is also what opens the next
+    // machine. Then one not yet yours for good; then anything.
+    const unseen = pool.filter((c) => !this.owned.has(c.id));
+    const notKept = pool.filter((c) => !this.isPermanent(c.id));
+    const from = unseen.length > 0 ? unseen : notKept.length > 0 ? notKept : pool;
     const pick = from[rng.int(from.length)];
     if (pick === undefined) return null;
 
     this.coins -= POD_PULL_COST;
     this.grant(pick.id, POD_PULL_USES);
+    this.podsOpen = this.podsAvailable();
     return pick.id;
   }
 
